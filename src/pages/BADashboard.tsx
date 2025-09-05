@@ -72,12 +72,6 @@ const BADashboard: React.FC = () => {
   const [pendingRequests, setPendingRequests] = useState<StartKeyRequest[]>([]);
   const [, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      loadDashboardData();
-    }
-  }, [user, loadDashboardData]);
-
   const loadDashboardData = useCallback(async () => {
     if (!user) return;
 
@@ -137,6 +131,12 @@ const BADashboard: React.FC = () => {
       setLoading(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user, loadDashboardData]);
 
   const handleLogout = async () => {
     try {
