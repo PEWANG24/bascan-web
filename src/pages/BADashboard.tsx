@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
   Typography,
-  Grid,
   Card,
   CardContent,
   AppBar,
@@ -20,10 +19,8 @@ import {
   IconButton
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
   QrCodeScanner as ScanIcon,
   Assignment as RequestIcon,
-  Person as ProfileIcon,
   Logout as LogoutIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
@@ -73,15 +70,15 @@ const BADashboard: React.FC = () => {
   });
   const [recentActivations, setRecentActivations] = useState<ScanActivation[]>([]);
   const [pendingRequests, setPendingRequests] = useState<StartKeyRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
       loadDashboardData();
     }
-  }, [user]);
+  }, [user, loadDashboardData]);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -139,7 +136,7 @@ const BADashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const handleLogout = async () => {
     try {

@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
   Typography,
-  Grid,
   Card,
   CardContent,
   AppBar,
@@ -27,13 +26,10 @@ import {
   Avatar
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
-  Group as TeamIcon,
   Assignment as RequestIcon,
   Inventory as StockIcon,
   Logout as LogoutIcon,
-  Refresh as RefreshIcon,
-  TrendingUp as TrendingUpIcon
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -81,17 +77,16 @@ const TeamLeaderDashboard: React.FC = () => {
   });
   const [pendingRequests, setPendingRequests] = useState<StartKeyRequest[]>([]);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
-  const [teamPerformance, setTeamPerformance] = useState<BAPerformance[]>([]);
   const [stockOrders, setStockOrders] = useState<OrderPDF[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
       loadDashboardData();
     }
-  }, [user]);
+  }, [user, loadDashboardData]);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -142,8 +137,6 @@ const TeamLeaderDashboard: React.FC = () => {
       // Calculate stats
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
       // Load team activations for stats
       const activationsQuery = query(
@@ -168,7 +161,7 @@ const TeamLeaderDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const handleLogout = async () => {
     try {
