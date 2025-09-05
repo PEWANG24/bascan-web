@@ -26,14 +26,13 @@ import {
   Avatar
 } from '@mui/material';
 import {
-  Assignment as RequestIcon,
   Inventory as StockIcon,
   Logout as LogoutIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { StartKeyRequest, BAPerformance, OrderPDF, DashboardStats, User } from '../types';
+import { StartKeyRequest, OrderPDF, DashboardStats, User } from '../types';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
