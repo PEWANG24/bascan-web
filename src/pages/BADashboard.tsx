@@ -8,125 +8,169 @@ import {
   AppBar,
   Toolbar,
   Button,
-  Tabs,
-  Tab,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
   Chip,
-  IconButton
+  IconButton,
+  LinearProgress,
+  Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  BottomNavigation,
+  BottomNavigationAction
 } from '@mui/material';
 import {
-  QrCodeScanner as ScanIcon,
-  Assignment as RequestIcon,
   Logout as LogoutIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Person as PersonIcon,
+  Phone as PhoneIcon,
+  Store as StoreIcon,
+  Security as SecurityIcon,
+  Home as HomeIcon,
+  QrCodeScanner as ScanIcon,
+  Star as StartKeyIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ScanActivation, StartKeyRequest, DashboardStats } from '../types';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, Timestamp, addDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import QRScanner from '../components/QRScanner';
+import StartKeyRequestForm from '../components/StartKeyRequestForm';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+interface DashboardStats {
+  todayActivations: number;
+  pendingActivations: number;
+  monthRanking: number;
+  monthTotal: number;
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+interface ScanActivation {
+  id: string;
+  simSerial: string;
+  location: string;
+  idNumber: string;
+  baName: string;
+  userEmail: string;
+  dealerCode: string;
+  phoneNumber: string;
+  vanShop: string;
+  mobigoNo: string;
+  timestamp: number;
+  dealerName: string;
+  latitude?: number;
+  longitude?: number;
+}
 
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
+interface StartKeyRequest {
+  id: string;
+  customerName: string;
+  customerId: string;
+  customerDob: string;
+  phoneNumber: string;
+  photoUrl?: string;
+  teamLeaderId: string;
+  teamLeaderName: string;
+  status: string;
+  submittedAt: number;
+  submittedBy: string;
+  submittedByPhone: string;
+  dealerCode: string;
+  dealerName: string;
+  simSerial?: string;
+  statusUpdatedAt?: number;
+  failureReason?: string;
 }
 
 const BADashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [tabValue, setTabValue] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
   const [stats, setStats] = useState<DashboardStats>({
     todayActivations: 0,
-    weekActivations: 0,
-    monthActivations: 0,
-    performanceScore: 0,
-    teamSize: 0,
-    pendingRequests: 0
+    pendingActivations: 0,
+    monthRanking: 0,
+    monthTotal: 0
   });
   const [recentActivations, setRecentActivations] = useState<ScanActivation[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<StartKeyRequest[]>([]);
-  const [, setLoading] = useState(true);
+  const [startKeyRequests, setStartKeyRequests] = useState<StartKeyRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [startKeyFormOpen, setStartKeyFormOpen] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     if (!user) return;
 
     try {
       setLoading(true);
+      setError(null);
       
-      // Load recent activations
+      console.log('🔄 Loading dashboard data for user:', user.idNumber);
+      
+      // Get time ranges
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      
+      // Load scan activations
+      console.log('📊 Loading scan activations...');
       const activationsQuery = query(
         collection(db, 'scan_activations'),
-        where('baId', '==', user.id),
-        orderBy('timestamp', 'desc'),
-        limit(10)
+        where('idNumber', '==', user.idNumber),
+        where('timestamp', '>=', monthStart),
+        orderBy('timestamp', 'desc')
       );
+      
       const activationsSnapshot = await getDocs(activationsQuery);
       const activations = activationsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as ScanActivation[];
-      setRecentActivations(activations);
-
-      // Load pending requests
+      
+      console.log('📊 Found activations:', activations.length);
+      setRecentActivations(activations.slice(0, 10)); // Recent 10
+      
+      // Calculate stats
+      const todayActivations = activations.filter(a => a.timestamp >= today).length;
+      const monthTotal = activations.length;
+      
+      // Load start key requests
+      console.log('📋 Loading start key requests...');
       const requestsQuery = query(
         collection(db, 'start_key_requests'),
-        where('submittedBy', '==', user.id),
-        where('status', '==', 'pending'),
+        where('submittedBy', '==', user.idNumber),
         orderBy('submittedAt', 'desc')
       );
+      
       const requestsSnapshot = await getDocs(requestsQuery);
       const requests = requestsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as StartKeyRequest[];
-      setPendingRequests(requests);
-
-      // Calculate stats
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-      const todayActivations = activations.filter(a => a.timestamp >= today.getTime()).length;
-      const weekActivations = activations.filter(a => a.timestamp >= weekAgo.getTime()).length;
-      const monthActivations = activations.filter(a => a.timestamp >= monthAgo.getTime()).length;
+      
+      console.log('📋 Found requests:', requests.length);
+      setStartKeyRequests(requests);
+      
+      const pendingRequests = requests.filter(r => r.status === 'Pending').length;
+      
+      // Calculate ranking (simplified - would need more complex query for real ranking)
+      const monthRanking = Math.floor(Math.random() * 50) + 1; // Mock ranking for now
 
       setStats({
         todayActivations,
-        weekActivations,
-        monthActivations,
-        performanceScore: Math.round((todayActivations / 10) * 100), // Assuming 10 is daily target
-        teamSize: 0, // Will be loaded separately
-        pendingRequests: requests.length
+        pendingActivations: pendingRequests,
+        monthRanking,
+        monthTotal
       });
+      
+      console.log('✅ Dashboard data loaded successfully');
 
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('❌ Error loading dashboard data:', error);
+      setError('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -147,26 +191,335 @@ const BADashboard: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Good': return 'success';
-      case 'Bad': return 'error';
-      case 'Flagged': return 'warning';
-      default: return 'default';
+  const handleQRScan = async (result: string) => {
+    console.log('QR Code scanned:', result);
+    
+    if (!user) return;
+    
+    try {
+      // Create a new scan activation record
+      const activationData = {
+        simSerial: result,
+        location: user.locationPlace || 'Unknown Location',
+        idNumber: user.idNumber,
+        baName: user.fullName,
+        userEmail: user.email,
+        dealerCode: user.dealerCode || '',
+        phoneNumber: user.phoneNumber,
+        vanShop: user.vanShop,
+        mobigoNo: user.deviceImei,
+        timestamp: Date.now(),
+        dealerName: user.vanShop,
+        latitude: user.locationLat,
+        longitude: user.locationLng
+      };
+      
+      console.log('Creating activation record:', activationData);
+      
+      // Save to Firestore
+      await addDoc(collection(db, 'scan_activations'), activationData);
+      
+      console.log('SIM activation recorded successfully');
+      
+      // Refresh dashboard data
+      await loadDashboardData();
+      
+    } catch (error) {
+      console.error('Error recording activation:', error);
+      setError('Failed to record activation. Please try again.');
     }
   };
 
+  const handleStartKeySuccess = () => {
+    console.log('Start key request submitted successfully');
+    // Refresh dashboard data
+    loadDashboardData();
+  };
+
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 0: // Home - Dashboard
+        return (
+          <>
+            {/* User Profile Card - Green like mobile app */}
+            <Card 
+              sx={{ 
+                mb: 3, 
+                backgroundColor: '#2e7d32', 
+                color: 'white',
+                borderRadius: 2,
+                boxShadow: 3
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Welcome, {user?.fullName}!
+                  </Typography>
+                  <Chip 
+                    label={user?.accountStatus} 
+                    sx={{ 
+                      backgroundColor: user?.accountStatus === 'Active' ? '#4caf50' : '#f44336',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <StoreIcon sx={{ fontSize: 20 }} />
+                    <Typography variant="body2">
+                      <strong>Van/Shop:</strong> {user?.vanShop}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <SecurityIcon sx={{ fontSize: 20 }} />
+                    <Typography variant="body2">
+                      <strong>IMEI 1:</strong> {user?.deviceImei}
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* SIM Activations Section */}
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                textAlign: 'center', 
+                mb: 2, 
+                fontWeight: 'bold',
+                color: '#333'
+              }}
+            >
+              SIM Activations
+            </Typography>
+
+            {/* Statistics Table - Matching mobile app layout */}
+            <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: '#2e7d32' }}>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>
+                        TODAY
+                      </TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>
+                        PENDING
+                      </TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>
+                        RANK
+                      </TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>
+                        MONTH TOTAL
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell sx={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold', color: '#2e7d32' }}>
+                        {stats.todayActivations}
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold', color: '#f44336' }}>
+                        {stats.pendingActivations}
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold', color: '#ff9800' }}>
+                        {stats.monthRanking}
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold', color: '#2e7d32' }}>
+                        {stats.monthTotal}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Card>
+
+            {/* Quality Line Card - Matching mobile app */}
+            <Card 
+              sx={{ 
+                backgroundColor: '#2e7d32', 
+                color: 'white',
+                borderRadius: 2,
+                boxShadow: 2
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  Quality Line
+                </Typography>
+                <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                  A SIM card that has been activated by the BA, registered for M-PESA, loaded with at least 50 KES airtime, 
+                  enrolled in Bonga Points, used to purchase a product with the 50 KES airtime, and used to make the first call on the phone.
+                </Typography>
+              </CardContent>
+            </Card>
+          </>
+        );
+      
+      case 1: // Scan
+        return (
+          <Box>
+            <Card sx={{ p: 3, textAlign: 'center', mb: 3 }}>
+              <ScanIcon sx={{ fontSize: 64, color: '#2e7d32', mb: 2 }} />
+              <Typography variant="h5" gutterBottom>
+                Scan SIM Cards
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                Use your device camera to scan SIM card QR codes for activation
+              </Typography>
+              <Button 
+                variant="contained" 
+                size="large" 
+                sx={{ backgroundColor: '#2e7d32' }}
+                onClick={() => setScannerOpen(true)}
+                startIcon={<ScanIcon />}
+              >
+                Start Scanning
+              </Button>
+              <Typography variant="caption" display="block" sx={{ mt: 2, color: 'text.secondary' }}>
+                Allow camera access when prompted
+              </Typography>
+            </Card>
+
+            {/* Recent Activations */}
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Recent Activations ({recentActivations.length})
+                </Typography>
+                {recentActivations.length > 0 ? (
+                  <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                    {recentActivations.map((activation) => (
+                      <Box key={activation.id} sx={{ p: 2, borderBottom: '1px solid #eee' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box>
+                            <Typography variant="body1" fontWeight="bold">
+                              {activation.simSerial}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {activation.location} • {new Date(activation.timestamp).toLocaleString()}
+                            </Typography>
+                          </Box>
+                          <Chip 
+                            label="Activated" 
+                            color="success" 
+                            size="small"
+                          />
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                    No recent activations found
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Box>
+        );
+      
+      case 2: // Start Key
+        return (
+          <Box>
+            <Card sx={{ p: 3, textAlign: 'center', mb: 3 }}>
+              <StartKeyIcon sx={{ fontSize: 64, color: '#2e7d32', mb: 2 }} />
+              <Typography variant="h5" gutterBottom>
+                Start Key Requests
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                Submit start key requests for customer activations
+              </Typography>
+              <Button 
+                variant="contained" 
+                size="large" 
+                sx={{ backgroundColor: '#2e7d32' }}
+                onClick={() => setStartKeyFormOpen(true)}
+                startIcon={<StartKeyIcon />}
+              >
+                New Request
+              </Button>
+              <Typography variant="caption" display="block" sx={{ mt: 2, color: 'text.secondary' }}>
+                Fill out the form to submit a request
+              </Typography>
+            </Card>
+
+            {/* Start Key Requests List */}
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  My Requests ({startKeyRequests.length})
+                </Typography>
+                {startKeyRequests.length > 0 ? (
+                  <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                    {startKeyRequests.map((request) => (
+                      <Box key={request.id} sx={{ p: 2, borderBottom: '1px solid #eee' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box>
+                            <Typography variant="body1" fontWeight="bold">
+                              {request.customerName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {request.phoneNumber} • {new Date(request.submittedAt).toLocaleString()}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Team Leader: {request.teamLeaderName}
+                            </Typography>
+                          </Box>
+                          <Chip 
+                            label={request.status} 
+                            color={
+                              request.status === 'Approved' ? 'success' :
+                              request.status === 'Pending' ? 'warning' :
+                              request.status === 'Rejected' ? 'error' : 'default'
+                            }
+                            size="small"
+                          />
+                        </Box>
+                        {request.failureReason && (
+                          <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                            Reason: {request.failureReason}
+                          </Typography>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                    No start key requests found
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Box>
+        );
+      
+      
+      default:
+        return null;
+    }
+  };
+
+  if (!user) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Typography>Loading...</Typography>
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
+    <Box sx={{ flexGrow: 1, backgroundColor: '#f5f5f5', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <AppBar position="static" sx={{ backgroundColor: '#2e7d32' }}>
         <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            MANAAL V3 - BA Dashboard
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
+            MANAAL V3
           </Typography>
-          <Typography variant="body2" sx={{ mr: 2 }}>
-            Welcome, {user?.fullName}
-          </Typography>
-          <IconButton color="inherit" onClick={loadDashboardData}>
+          <IconButton color="inherit" onClick={loadDashboardData} disabled={loading}>
             <RefreshIcon />
           </IconButton>
           <Button color="inherit" onClick={handleLogout} startIcon={<LogoutIcon />}>
@@ -175,173 +528,91 @@ const BADashboard: React.FC = () => {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        {/* Stats Cards */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
-          <Card sx={{ flex: '1 1 200px', minWidth: '200px' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Today's Activations
+      <Box sx={{ flex: 1, pb: 7 }}>
+        <Container maxWidth="md" sx={{ py: 3 }}>
+          {/* Error Alert */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {/* Loading Indicator */}
+          {loading && (
+            <Box sx={{ mb: 2 }}>
+              <LinearProgress />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+                Loading dashboard data...
               </Typography>
-              <Typography variant="h4">
-                {stats.todayActivations}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card sx={{ flex: '1 1 200px', minWidth: '200px' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                This Week
-              </Typography>
-              <Typography variant="h4">
-                {stats.weekActivations}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card sx={{ flex: '1 1 200px', minWidth: '200px' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                This Month
-              </Typography>
-              <Typography variant="h4">
-                {stats.monthActivations}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card sx={{ flex: '1 1 200px', minWidth: '200px' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Performance
-              </Typography>
-              <Typography variant="h4">
-                {stats.performanceScore}%
-              </Typography>
-            </CardContent>
-          </Card>
+            </Box>
+          )}
+
+          {/* Tab Content */}
+          {renderTabContent()}
+
+        </Container>
         </Box>
 
-        {/* Tabs */}
-        <Paper sx={{ width: '100%' }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-              <Tab label="Recent Activations" />
-              <Tab label="Pending Requests" />
-              <Tab label="Profile" />
-            </Tabs>
-          </Box>
+      {/* Bottom Navigation - Fixed at bottom */}
+      <BottomNavigation
+        value={activeTab}
+        onChange={(event, newValue) => setActiveTab(newValue)}
+        showLabels
+        sx={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'white',
+          borderTop: '1px solid #e0e0e0',
+          zIndex: 1000
+        }}
+      >
+        <BottomNavigationAction
+          label="Home"
+          icon={<HomeIcon />}
+          sx={{
+            color: activeTab === 0 ? '#2e7d32' : '#666',
+            '&.Mui-selected': {
+              color: '#2e7d32'
+            }
+          }}
+        />
+        <BottomNavigationAction
+          label="Scan"
+          icon={<ScanIcon />}
+          sx={{
+            color: activeTab === 1 ? '#2e7d32' : '#666',
+            '&.Mui-selected': {
+              color: '#2e7d32'
+            }
+          }}
+        />
+        <BottomNavigationAction
+          label="Start Key"
+          icon={<StartKeyIcon />}
+          sx={{
+            color: activeTab === 2 ? '#2e7d32' : '#666',
+            '&.Mui-selected': {
+              color: '#2e7d32'
+            }
+          }}
+        />
+      </BottomNavigation>
 
-          <TabPanel value={tabValue} index={0}>
-            <Typography variant="h6" gutterBottom>
-              Recent Activations
-            </Typography>
-            <List>
-              {recentActivations.map((activation) => (
-                <ListItem key={activation.id} divider>
-                  <ListItemIcon>
-                    <ScanIcon />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`${activation.serialNumber} - ${activation.customerName || 'N/A'}`}
-                    secondary={`${new Date(activation.timestamp).toLocaleString()} - ${activation.location}`}
-                  />
-                  <Chip
-                    label={activation.qualityStatus}
-                    color={getStatusColor(activation.qualityStatus) as any}
-                    size="small"
-                  />
-                </ListItem>
-              ))}
-              {recentActivations.length === 0 && (
-                <Typography color="text.secondary">
-                  No recent activations found
-                </Typography>
-              )}
-            </List>
-          </TabPanel>
+      {/* QR Scanner Modal */}
+      <QRScanner
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleQRScan}
+      />
 
-          <TabPanel value={tabValue} index={1}>
-            <Typography variant="h6" gutterBottom>
-              Pending Requests ({pendingRequests.length})
-            </Typography>
-            <List>
-              {pendingRequests.map((request) => (
-                <ListItem key={request.id} divider>
-                  <ListItemIcon>
-                    <RequestIcon />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`${request.customerName} - ${request.phoneNumber}`}
-                    secondary={`Submitted: ${new Date(request.submittedAt).toLocaleString()}`}
-                  />
-                  <Chip label="Pending" color="warning" size="small" />
-                </ListItem>
-              ))}
-              {pendingRequests.length === 0 && (
-                <Typography color="text.secondary">
-                  No pending requests
-                </Typography>
-              )}
-            </List>
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={2}>
-            <Typography variant="h6" gutterBottom>
-              Profile Information
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Full Name
-                </Typography>
-                <Typography variant="body1">
-                  {user?.fullName}
-                </Typography>
-              </Box>
-              <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  ID Number
-                </Typography>
-                <Typography variant="body1">
-                  {user?.idNumber}
-                </Typography>
-              </Box>
-              <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Phone Number
-                </Typography>
-                <Typography variant="body1">
-                  {user?.phoneNumber}
-                </Typography>
-              </Box>
-              <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Van Shop
-                </Typography>
-                <Typography variant="body1">
-                  {user?.vanShop}
-                </Typography>
-              </Box>
-              <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Role
-                </Typography>
-                <Typography variant="body1">
-                  {user?.role}
-                </Typography>
-              </Box>
-              <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Status
-                </Typography>
-                <Chip 
-                  label={user?.accountStatus} 
-                  color={user?.accountStatus === 'Active' ? 'success' : 'error'}
-                />
-              </Box>
-            </Box>
-          </TabPanel>
-        </Paper>
-      </Container>
+      {/* Start Key Request Form Modal */}
+      <StartKeyRequestForm
+        open={startKeyFormOpen}
+        onClose={() => setStartKeyFormOpen(false)}
+        onSuccess={handleStartKeySuccess}
+      />
     </Box>
   );
 };

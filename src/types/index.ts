@@ -8,7 +8,11 @@ export interface User {
   role: 'BA' | 'TEAM_LEADER' | 'MANAGER';
   vanShop: string;
   dealerCode: string;
+  deviceImei: string;
   accountStatus: 'Active' | 'Inactive';
+  locationLat: number;
+  locationLng: number;
+  locationPlace: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -127,4 +131,6 @@ export interface AuthContextType {
   login: (idNumber: string, pin: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
+  verifyIdNumber: (idNumber: string) => Promise<boolean>;
+  verifyPin: (pin: string) => Promise<void>;
 }

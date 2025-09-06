@@ -89,6 +89,8 @@ const AppRoutes: React.FC = () => {
 };
 
 function App() {
+  console.log('🚀 BASCAN Web App Starting...');
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
