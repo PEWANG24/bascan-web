@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
-import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation } from '@/lib/database';
+import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation, diagnoseSimStockStructure } from '@/lib/database';
 
 interface User {
   fullName: string;
@@ -320,6 +320,32 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
+  const handleDiagnoseSimStock = async () => {
+    setLoading(true);
+    setMessage('🔍 Diagnosing simStock structure...');
+    
+    try {
+      const structure = await diagnoseSimStockStructure();
+      console.log('SimStock Structure:', structure);
+      
+      setMessage(`📊 SimStock Diagnosis Results:
+      
+Total Documents: ${structure.totalDocuments}
+Has serialNumbers Field: ${structure.hasSerialNumbersField ? '✅ Yes' : '❌ No'}
+Has Nested Structure: ${structure.hasNestedStructure ? '✅ Yes' : '❌ No'}
+Serial Count (flat): ${structure.serialCount}
+Serial Count (nested): ${structure.nestedSerialCount}
+
+Sample Document Fields: ${structure.sampleDocument?.fields?.join(', ') || 'None'}
+
+${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
+    } catch (error) {
+      setMessage(`❌ Diagnosis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   // Step navigation functions
   const resetStartKeyDialog = () => {
@@ -619,11 +645,23 @@ export default function DashboardPage() {
                 {/* Track My Requests Button */}
                 <button
                   onClick={() => {/* TODO: Navigate to requests tracking */}}
-                  className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 mb-3"
                 >
                   <div className="flex items-center space-x-2">
                     <span>📊</span>
                     <span>Track My Requests</span>
+                  </div>
+                </button>
+                
+                {/* Diagnostic Button */}
+                <button
+                  onClick={handleDiagnoseSimStock}
+                  disabled={loading}
+                  className="w-full inline-flex justify-center py-3 px-4 border border-orange-300 shadow-sm text-sm font-medium rounded-lg text-orange-700 bg-orange-100 hover:bg-orange-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50"
+                >
+                  <div className="flex items-center space-x-2">
+                    <span>🔍</span>
+                    <span>{loading ? 'Diagnosing...' : 'Diagnose SimStock'}</span>
                   </div>
                 </button>
               </div>

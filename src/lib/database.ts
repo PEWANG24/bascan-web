@@ -109,7 +109,7 @@ export const getUserStartKeyRequests = async (idNumber: string): Promise<StartKe
 const validationCache = new Map<string, { result: boolean; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Check if serial exists in simStock collection (like Android app)
+// Check if serial exists in simStock collection (fixed to work with actual data structure)
 export const validateSerialInSimStock = async (serial: string): Promise<boolean> => {
   try {
     // Check cache first (like Android app)
@@ -118,13 +118,47 @@ export const validateSerialInSimStock = async (serial: string): Promise<boolean>
       return cached.result;
     }
 
-    const q = query(
-      collection(db, 'simStock'),
-      where('serialNumbers', 'array-contains', serial)
-    );
+    // First try the array-contains approach (in case serialNumbers field exists)
+    try {
+      const q = query(
+        collection(db, 'simStock'),
+        where('serialNumbers', 'array-contains', serial)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        validationCache.set(serial, { result: true, timestamp: Date.now() });
+        return true;
+      }
+    } catch (arrayError) {
+      console.log('Array-contains query failed, trying nested structure approach:', arrayError);
+    }
+
+    // If array-contains fails, try the nested structure approach (like Android app)
+    const allSimStockQuery = query(collection(db, 'simStock'));
+    const allSimStockSnapshot = await getDocs(allSimStockQuery);
     
-    const querySnapshot = await getDocs(q);
-    const result = !querySnapshot.empty; // Return true if serial exists in simStock
+    let result = false;
+    
+    // Search through all simStock documents for the serial in nested structure
+    for (const doc of allSimStockSnapshot.docs) {
+      const data = doc.data();
+      const orders = data.orders as any[] || [];
+      
+      for (const order of orders) {
+        const simCards = order.simCards as any[] || [];
+        
+        for (const simCard of simCards) {
+          const serialNumber = simCard.serialNumber as string;
+          if (serialNumber === serial) {
+            result = true;
+            break;
+          }
+        }
+        if (result) break;
+      }
+      if (result) break;
+    }
     
     // Cache the result (like Android app)
     validationCache.set(serial, { result, timestamp: Date.now() });
@@ -133,6 +167,153 @@ export const validateSerialInSimStock = async (serial: string): Promise<boolean>
   } catch (error) {
     console.error('Error validating serial in simStock:', error);
     return false;
+  }
+};
+
+// Batch validation for multiple serials (more efficient)
+export const validateSerialsInSimStock = async (serials: string[]): Promise<Map<string, boolean>> => {
+  const results = new Map<string, boolean>();
+  
+  if (serials.length === 0) return results;
+  
+  try {
+    // Check cache first for all serials
+    const uncachedSerials: string[] = [];
+    for (const serial of serials) {
+      const cached = validationCache.get(serial);
+      if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+        results.set(serial, cached.result);
+      } else {
+        uncachedSerials.push(serial);
+      }
+    }
+    
+    if (uncachedSerials.length === 0) return results;
+    
+    // Try array-contains approach first for uncached serials
+    try {
+      const q = query(
+        collection(db, 'simStock'),
+        where('serialNumbers', 'array-contains-any', uncachedSerials.slice(0, 10)) // Firestore limit
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const foundSerials = new Set<string>();
+      
+      for (const doc of querySnapshot.docs) {
+        const serialNumbers = doc.data().serialNumbers as string[] || [];
+        for (const serial of serialNumbers) {
+          foundSerials.add(serial);
+        }
+      }
+      
+      // Update results and cache
+      for (const serial of uncachedSerials) {
+        const found = foundSerials.has(serial);
+        results.set(serial, found);
+        validationCache.set(serial, { result: found, timestamp: Date.now() });
+      }
+      
+      return results;
+    } catch (arrayError) {
+      console.log('Array-contains-any query failed, trying nested structure approach:', arrayError);
+    }
+    
+    // Fallback to nested structure approach
+    const allSimStockQuery = query(collection(db, 'simStock'));
+    const allSimStockSnapshot = await getDocs(allSimStockQuery);
+    
+    const foundSerials = new Set<string>();
+    
+    // Search through all simStock documents for serials in nested structure
+    for (const doc of allSimStockSnapshot.docs) {
+      const data = doc.data();
+      const orders = data.orders as any[] || [];
+      
+      for (const order of orders) {
+        const simCards = order.simCards as any[] || [];
+        
+        for (const simCard of simCards) {
+          const serialNumber = simCard.serialNumber as string;
+          if (uncachedSerials.includes(serialNumber)) {
+            foundSerials.add(serialNumber);
+          }
+        }
+      }
+    }
+    
+    // Update results and cache
+    for (const serial of uncachedSerials) {
+      const found = foundSerials.has(serial);
+      results.set(serial, found);
+      validationCache.set(serial, { result: found, timestamp: Date.now() });
+    }
+    
+    return results;
+  } catch (error) {
+    console.error('Error in batch validation:', error);
+    // Return false for all uncached serials on error
+    for (const serial of serials) {
+      if (!results.has(serial)) {
+        results.set(serial, false);
+      }
+    }
+    return results;
+  }
+};
+
+// Diagnostic function to check simStock structure
+export const diagnoseSimStockStructure = async (): Promise<any> => {
+  try {
+    const allSimStockQuery = query(collection(db, 'simStock'));
+    const allSimStockSnapshot = await getDocs(allSimStockQuery);
+    
+    const structure = {
+      totalDocuments: allSimStockSnapshot.docs.length,
+      hasSerialNumbersField: false,
+      hasNestedStructure: false,
+      sampleDocument: null as any,
+      serialCount: 0,
+      nestedSerialCount: 0
+    };
+    
+    if (allSimStockSnapshot.docs.length > 0) {
+      const sampleDoc = allSimStockSnapshot.docs[0];
+      const data = sampleDoc.data();
+      
+      structure.sampleDocument = {
+        id: sampleDoc.id,
+        fields: Object.keys(data),
+        hasSerialNumbers: 'serialNumbers' in data,
+        hasOrders: 'orders' in data
+      };
+      
+      // Check for serialNumbers field
+      if (data.serialNumbers && Array.isArray(data.serialNumbers)) {
+        structure.hasSerialNumbersField = true;
+        structure.serialCount = data.serialNumbers.length;
+      }
+      
+      // Check for nested structure
+      if (data.orders && Array.isArray(data.orders)) {
+        structure.hasNestedStructure = true;
+        
+        for (const order of data.orders) {
+          if (order.simCards && Array.isArray(order.simCards)) {
+            for (const simCard of order.simCards) {
+              if (simCard.serialNumber) {
+                structure.nestedSerialCount++;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return structure;
+  } catch (error) {
+    console.error('Error diagnosing simStock structure:', error);
+    return { error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
 
