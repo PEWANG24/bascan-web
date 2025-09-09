@@ -46,6 +46,11 @@ export interface SimActivation {
   reviewStatus: string;
   qualityStatus?: string;
   locationPlace?: string;
+  scanId?: string;
+  scanType?: string;
+  isPending?: boolean;
+  createdAt?: number;
+  syncedAt?: number;
 }
 
 export const submitStartKeyRequest = async (request: Omit<StartKeyRequest, 'requestId' | 'submittedAt'>): Promise<string> => {
@@ -222,13 +227,16 @@ export const submitSimActivation = async (activation: Omit<SimActivation, 'id' |
       ...activation,
       timestamp,
       isSynced: true,
-      reviewStatus: 'pending'
+      reviewStatus: 'Under Review' // Match Android app status
     };
     
     const docRef = await addDoc(collection(db, 'scan_activations'), {
       ...activationData,
       scanId,
-      scanType: 'activation'
+      scanType: 'activation',
+      isPending: false, // Match Android app
+      createdAt: timestamp,
+      syncedAt: timestamp
     });
     
     console.log('SIM activation submitted with ID:', scanId);
@@ -266,9 +274,14 @@ export const getUserSimActivations = async (userId: string): Promise<SimActivati
         longitude: data.longitude,
         timestamp: data.timestamp || 0,
         isSynced: data.isSynced || false,
-        reviewStatus: data.reviewStatus || 'pending',
+        reviewStatus: data.reviewStatus || 'Under Review', // Match Android app
         qualityStatus: data.qualityStatus,
-        locationPlace: data.locationPlace
+        locationPlace: data.locationPlace,
+        scanId: data.scanId,
+        scanType: data.scanType,
+        isPending: data.isPending || false,
+        createdAt: data.createdAt,
+        syncedAt: data.syncedAt
       } as SimActivation);
     });
     
