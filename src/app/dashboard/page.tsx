@@ -216,7 +216,7 @@ export default function DashboardPage() {
         phoneNumber: user.phoneNumber || '',
         vanShop: user.vanShop,
         isSynced: true,
-        reviewStatus: 'pending'
+        reviewStatus: 'Under Review' // Match Android app
       });
 
       // STEP 5: Save to local storage (like Android app)

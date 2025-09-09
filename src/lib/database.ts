@@ -51,6 +51,16 @@ export interface SimActivation {
   isPending?: boolean;
   createdAt?: number;
   syncedAt?: number;
+  // Additional fields to match Android app
+  simSerial?: string;
+  idNumber?: string;
+  baName?: string;
+  dealerName?: string;
+  location?: string;
+  activationDate?: string;
+  mobigoNo?: string;
+  scanStatus?: string;
+  qualityProcessed?: boolean;
 }
 
 export const submitStartKeyRequest = async (request: Omit<StartKeyRequest, 'requestId' | 'submittedAt'>): Promise<string> => {
@@ -402,23 +412,48 @@ export const submitSimActivation = async (activation: Omit<SimActivation, 'id' |
   try {
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const scanId = `SCAN_${timestamp}_${randomString}`;
+    const scanId = `scan_${timestamp}_${randomString}`;
     
-    const activationData = {
-      ...activation,
-      timestamp,
-      isSynced: true,
-      reviewStatus: 'Under Review' // Match Android app status
+    // Create scan data matching Android app structure exactly
+    const scanData = {
+      // Core identification (like Android app)
+      scanId: scanId,
+      simSerial: activation.serialNumber,
+      idNumber: activation.userId || 'ID not available',
+      
+      // Essential user data (like Android app)
+      baName: activation.userName || 'Name not available',
+      userEmail: activation.userEmail || 'Email not available',
+      phoneNumber: activation.phoneNumber || 'Phone not available',
+      
+      // Dealer information (like Android app)
+      dealerCode: activation.dealerCode || 'Dealer code not available',
+      dealerName: activation.vanShop || 'Dealer name not available',
+      vanShop: activation.vanShop || 'Van/Shop not available',
+      
+      // Location and activation data (like Android app)
+      location: activation.marketArea || 'Location not available',
+      activationDate: new Date(timestamp).toLocaleDateString('en-GB'),
+      mobigoNo: 'Device ID not available', // Web app doesn't have device ID
+      
+      // Status and processing (like Android app)
+      isPending: false,
+      reviewStatus: 'Under Review',
+      scanType: 'activation',
+      scanStatus: 'completed',
+      qualityProcessed: false,
+      
+      // Timestamps (like Android app)
+      timestamp: timestamp,
+      createdAt: timestamp,
+      syncedAt: timestamp,
+      
+      // GPS coordinates (web app doesn't have GPS, use 0.0 like Android fallback)
+      latitude: activation.latitude || 0.0,
+      longitude: activation.longitude || 0.0
     };
     
-    const docRef = await addDoc(collection(db, 'scan_activations'), {
-      ...activationData,
-      scanId,
-      scanType: 'activation',
-      isPending: false, // Match Android app
-      createdAt: timestamp,
-      syncedAt: timestamp
-    });
+    const docRef = await addDoc(collection(db, 'scan_activations'), scanData);
     
     console.log('SIM activation submitted with ID:', scanId);
     return scanId;
@@ -443,10 +478,10 @@ export const getUserSimActivations = async (userId: string): Promise<SimActivati
       const data = doc.data();
       activations.push({
         id: doc.id,
-        serialNumber: data.serialNumber || '',
-        marketArea: data.marketArea || '',
-        userId: data.userId || '',
-        userName: data.userName || '',
+        serialNumber: data.serialNumber || data.simSerial || '',
+        marketArea: data.marketArea || data.location || '',
+        userId: data.userId || data.idNumber || '',
+        userName: data.userName || data.baName || '',
         userEmail: data.userEmail || '',
         dealerCode: data.dealerCode || '',
         phoneNumber: data.phoneNumber || '',
@@ -462,7 +497,17 @@ export const getUserSimActivations = async (userId: string): Promise<SimActivati
         scanType: data.scanType,
         isPending: data.isPending || false,
         createdAt: data.createdAt,
-        syncedAt: data.syncedAt
+        syncedAt: data.syncedAt,
+        // Additional fields from Android app
+        simSerial: data.simSerial,
+        idNumber: data.idNumber,
+        baName: data.baName,
+        dealerName: data.dealerName,
+        location: data.location,
+        activationDate: data.activationDate,
+        mobigoNo: data.mobigoNo,
+        scanStatus: data.scanStatus,
+        qualityProcessed: data.qualityProcessed
       } as SimActivation);
     });
     
