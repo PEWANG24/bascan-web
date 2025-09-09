@@ -100,16 +100,31 @@ export const getUserStartKeyRequests = async (idNumber: string): Promise<StartKe
   }
 };
 
+// Simple validation cache (like Android app)
+const validationCache = new Map<string, { result: boolean; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 // Check if serial exists in simStock collection (like Android app)
 export const validateSerialInSimStock = async (serial: string): Promise<boolean> => {
   try {
+    // Check cache first (like Android app)
+    const cached = validationCache.get(serial);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      return cached.result;
+    }
+
     const q = query(
       collection(db, 'simStock'),
       where('serialNumbers', 'array-contains', serial)
     );
     
     const querySnapshot = await getDocs(q);
-    return !querySnapshot.empty; // Return true if serial exists in simStock
+    const result = !querySnapshot.empty; // Return true if serial exists in simStock
+    
+    // Cache the result (like Android app)
+    validationCache.set(serial, { result, timestamp: Date.now() });
+    
+    return result;
   } catch (error) {
     console.error('Error validating serial in simStock:', error);
     return false;
@@ -119,6 +134,66 @@ export const validateSerialInSimStock = async (serial: string): Promise<boolean>
 // Get user-friendly error message for invalid serial (like Android app)
 export const getInvalidSerialMessage = (serial: string): string => {
   return "This serial isn't registered with MANAAL. Use the SIM from your dealer.";
+};
+
+// ICCID validation function (like Android app)
+export const isValidICCID = (iccid: string): boolean => {
+  // ICCID validation: exactly 20 digits
+  return /^\d{20}$/.test(iccid);
+};
+
+// Local duplicate check (like Android app) - checks localStorage for recent activations
+export const checkLocalDuplicate = (serial: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    // Get today's activations from localStorage
+    const todayActivations = JSON.parse(localStorage.getItem('today_activations') || '[]');
+    
+    // Check if serial exists in today's activations
+    return todayActivations.some((activation: any) => 
+      activation.serialNumber === serial && 
+      new Date(activation.timestamp) >= startOfToday
+    );
+  } catch (error) {
+    console.error('Error checking local duplicate:', error);
+    return false;
+  }
+};
+
+// Save activation to local storage (like Android app)
+export const saveLocalActivation = (serial: string, marketArea: string, userId: string) => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    // Get existing today's activations
+    const todayActivations = JSON.parse(localStorage.getItem('today_activations') || '[]');
+    
+    // Add new activation
+    const newActivation = {
+      serialNumber: serial,
+      marketArea: marketArea,
+      userId: userId,
+      timestamp: Date.now()
+    };
+    
+    todayActivations.push(newActivation);
+    
+    // Keep only today's activations (cleanup old ones)
+    const filteredActivations = todayActivations.filter((activation: any) => 
+      new Date(activation.timestamp) >= startOfToday
+    );
+    
+    localStorage.setItem('today_activations', JSON.stringify(filteredActivations));
+  } catch (error) {
+    console.error('Error saving local activation:', error);
+  }
 };
 
 // Check for duplicate serial in scan_activations (like Android app)

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
-import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate } from '@/lib/database';
+import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation } from '@/lib/database';
 
 interface User {
   fullName: string;
@@ -172,7 +172,7 @@ export default function DashboardPage() {
     if (!user || !serialNumber.trim() || !marketArea.trim()) return;
 
     // Validate ICCID format (exactly 20 digits) - like Android app
-    if (serialNumber.length !== 20) {
+    if (!isValidICCID(serialNumber)) {
       setMessage('Invalid ICCID format - must be exactly 20 digits');
       return;
     }
@@ -181,7 +181,15 @@ export default function DashboardPage() {
     setMessage('');
 
     try {
-      // STEP 1: Fast serial validation against simStock collection (like Android app)
+      // STEP 1: Local duplicate check (fast - like Android app)
+      const isLocalDuplicate = checkLocalDuplicate(serialNumber);
+      if (isLocalDuplicate) {
+        setMessage('This SIM serial has already been activated locally today. Please check your records.');
+        setLoading(false);
+        return;
+      }
+
+      // STEP 2: Fast serial validation against simStock collection (like Android app)
       const isValidSerial = await validateSerialInSimStock(serialNumber);
       if (!isValidSerial) {
         setMessage(getInvalidSerialMessage(serialNumber));
@@ -189,7 +197,7 @@ export default function DashboardPage() {
         return;
       }
 
-      // STEP 2: Firestore duplicate check (like Android app)
+      // STEP 3: Firestore duplicate check (like Android app)
       const isFirestoreDuplicate = await checkFirestoreDuplicate(serialNumber);
       if (isFirestoreDuplicate) {
         setMessage('This SIM serial has already been activated and exists in the server. Please use a different SIM.');
@@ -197,7 +205,7 @@ export default function DashboardPage() {
         return;
       }
 
-      // STEP 3: Submit SIM activation
+      // STEP 4: Submit SIM activation
       await submitSimActivation({
         serialNumber: serialNumber.trim(),
         marketArea: marketArea.trim(),
@@ -210,6 +218,9 @@ export default function DashboardPage() {
         isSynced: true,
         reviewStatus: 'pending'
       });
+
+      // STEP 5: Save to local storage (like Android app)
+      saveLocalActivation(serialNumber.trim(), marketArea.trim(), user.idNumber);
 
       // Success message (like Android app)
       setMessage('✅ SIM activation completed successfully!\n\nYour activation has been recorded and uploaded to the server. You can now scan another SIM or return to the dashboard.');
