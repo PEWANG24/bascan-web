@@ -152,21 +152,28 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
         decoder: {
           readers: [
             "code_128_reader",
+            "code_39_reader",
             "ean_reader",
             "ean_8_reader",
-            "code_39_reader",
-            "code_39_vin_reader",
             "codabar_reader",
             "upc_reader",
             "upc_e_reader",
             "i2of5_reader"
-          ]
+          ],
+          debug: {
+            drawBoundingBox: true,
+            showFrequency: true,
+            drawScanline: true,
+            showPattern: true
+          }
         },
         locate: true,
         locator: {
-          patchSize: "medium",
-          halfSample: true
-        }
+          patchSize: "large",
+          halfSample: false
+        },
+        numOfWorkers: 4,
+        frequency: 10
       }, (err: any) => {
         if (err) {
           console.error('Quagga initialization error:', err);
@@ -205,6 +212,7 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
         const rawValue = data.codeResult.code;
         console.log('Barcode detected:', rawValue);
         console.log('Barcode type:', data.codeResult.format);
+        console.log('Barcode confidence:', data.codeResult.decodedCodes);
         
         // Extract 20-digit serial number (matching Android app logic)
         const serialNumber = extractSerialNumber(rawValue);
@@ -215,6 +223,19 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
         } else {
           console.warn('❌ Invalid barcode format - no 20-digit serial found in:', rawValue);
           console.log('Digits only:', rawValue.replace(/[^0-9]/g, ''));
+          
+          // Try to extract from the printed number below the barcode
+          // Sometimes the barcode itself doesn't contain the serial, but it's printed below
+          if (rawValue && rawValue.length >= 20) {
+            const directSerial = rawValue.replace(/[^0-9]/g, '').substring(0, 20);
+            if (directSerial.length === 20) {
+              console.log('✅ Extracted from barcode text:', directSerial);
+              onDetected(directSerial);
+              stopScanning();
+              return;
+            }
+          }
+          
           // Continue scanning for valid barcode
         }
       });

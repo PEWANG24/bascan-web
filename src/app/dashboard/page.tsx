@@ -713,19 +713,21 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
                   </div>
                 </div>
                 
-                {scannerError && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Enter Serial Manually:
-                    </label>
-                    <input
-                      type="text"
-                      value={serialNumber}
-                      onChange={(e) => handleSerialChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="Enter 20-digit serial number"
-                      maxLength={20}
-                    />
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {scannerError ? 'Enter Serial Manually:' : 'Or Enter Serial Manually:'}
+                  </label>
+                  <input
+                    type="text"
+                    value={serialNumber}
+                    onChange={(e) => handleSerialChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter 20-digit serial number (e.g., 89254021394247624090)"
+                    maxLength={20}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Example: 89254021394247624090
+                  </p>
                     <div className="mt-2 flex justify-between items-center">
                       <button
                         type="button"
