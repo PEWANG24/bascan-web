@@ -414,19 +414,44 @@ export const checkCachedDuplicate = (serial: string): boolean => {
       cacheExpiry: localStorage.getItem(CACHE_EXPIRY_KEY)
     });
     
+    // Check if we have the expected number of cached activations
+    if (cachedActivations.length < 1000) {
+      console.warn('⚠️ Cache seems incomplete - only', cachedActivations.length, 'activations cached');
+    }
+    
+    let checkedCount = 0;
+    let foundMatch = false;
+    
     const isDuplicate = cachedActivations.some((activation: any) => {
+      checkedCount++;
       const isSameSerial = activation.simSerial === serial;
       
-      console.log('🔍 Checking cached activation:', {
-        simSerial: activation.simSerial,
-        isSameSerial,
-        scanId: activation.scanId
-      });
+      if (isSameSerial) {
+        foundMatch = true;
+        console.log('🎯 DUPLICATE FOUND in cache:', {
+          simSerial: activation.simSerial,
+          baName: activation.baName || activation.userName,
+          vanShop: activation.vanShop || activation.dealerName,
+          scanId: activation.scanId,
+          checkedCount: checkedCount
+        });
+      }
+      
+      // Log progress every 500 checks to avoid console spam
+      if (checkedCount % 500 === 0) {
+        console.log(`🔍 Checked ${checkedCount}/${cachedActivations.length} activations...`);
+      }
       
       return isSameSerial;
     });
     
-    console.log('🔍 Cached duplicate check result:', isDuplicate);
+    console.log('🔍 Cached duplicate check complete:', {
+      isDuplicate,
+      totalChecked: checkedCount,
+      totalCached: cachedActivations.length,
+      foundMatch
+    });
+    
     return isDuplicate;
   } catch (error) {
     console.error('Error checking cached duplicate:', error);
