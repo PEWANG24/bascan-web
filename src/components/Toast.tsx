@@ -8,14 +8,27 @@ interface ToastProps {
   isVisible: boolean;
   onClose: () => void;
   duration?: number;
+  position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'center' | 'button-context';
+  buttonRef?: React.RefObject<HTMLButtonElement>;
 }
 
-export default function Toast({ message, type, isVisible, onClose, duration = 5000 }: ToastProps) {
+export default function Toast({ message, type, isVisible, onClose, duration = 5000, position = 'top-right', buttonRef }: ToastProps) {
   const [isAnimating, setIsAnimating] = useState(false);
+  const [toastPosition, setToastPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     if (isVisible) {
       setIsAnimating(true);
+      
+      // Calculate position if button context is specified
+      if (position === 'button-context' && buttonRef?.current) {
+        const buttonRect = buttonRef.current.getBoundingClientRect();
+        setToastPosition({
+          top: buttonRect.top - 10,
+          left: buttonRect.left + (buttonRect.width / 2) - 150 // Center on button
+        });
+      }
+      
       const timer = setTimeout(() => {
         if (type !== 'loading') {
           setIsAnimating(false);
@@ -25,7 +38,7 @@ export default function Toast({ message, type, isVisible, onClose, duration = 50
 
       return () => clearTimeout(timer);
     }
-  }, [isVisible, type, duration, onClose]);
+  }, [isVisible, type, duration, onClose, position, buttonRef]);
 
   if (!isVisible) return null;
 
@@ -59,13 +72,59 @@ export default function Toast({ message, type, isVisible, onClose, duration = 50
     }
   };
 
+  const getPositionClasses = () => {
+    if (position === 'button-context') {
+      return 'fixed z-50 max-w-sm w-full';
+    }
+    
+    switch (position) {
+      case 'top-right':
+        return 'fixed top-4 right-4 z-50 max-w-sm w-full';
+      case 'top-left':
+        return 'fixed top-4 left-4 z-50 max-w-sm w-full';
+      case 'bottom-right':
+        return 'fixed bottom-4 right-4 z-50 max-w-sm w-full';
+      case 'bottom-left':
+        return 'fixed bottom-4 left-4 z-50 max-w-sm w-full';
+      case 'center':
+        return 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 max-w-sm w-full';
+      default:
+        return 'fixed top-4 right-4 z-50 max-w-sm w-full';
+    }
+  };
+
+  const getAnimationClasses = () => {
+    if (position === 'button-context') {
+      return isAnimating ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0';
+    }
+    
+    switch (position) {
+      case 'top-right':
+      case 'top-left':
+        return isAnimating ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0';
+      case 'bottom-right':
+      case 'bottom-left':
+        return isAnimating ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0';
+      case 'center':
+        return isAnimating ? 'scale-100 opacity-100' : 'scale-95 opacity-0';
+      default:
+        return isAnimating ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0';
+    }
+  };
+
   return (
-    <div className="fixed top-4 right-4 z-50 max-w-sm w-full">
+    <div 
+      className={getPositionClasses()}
+      style={position === 'button-context' ? {
+        top: `${toastPosition.top}px`,
+        left: `${toastPosition.left}px`
+      } : {}}
+    >
       <div
         className={`
           ${getToastStyles()}
           border-2 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out
-          ${isAnimating ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
+          ${getAnimationClasses()}
         `}
       >
         <div className="flex items-center space-x-3">

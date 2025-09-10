@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
   color?: 'primary' | 'white' | 'green' | 'blue';
@@ -58,19 +60,15 @@ export default function LoadingSpinner({
 }
 
 // Button Loading State Component
-export function ButtonLoadingState({ 
-  isLoading, 
-  children, 
-  loadingText = 'Loading...',
-  className = ''
-}: {
+export const ButtonLoadingState = React.forwardRef<HTMLButtonElement, {
   isLoading: boolean;
   children: React.ReactNode;
   loadingText?: string;
   className?: string;
-}) {
+}>(({ isLoading, children, loadingText = 'Loading...', className = '' }, ref) => {
   return (
     <button
+      ref={ref}
       className={`
         ${className}
         ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}
@@ -85,4 +83,4 @@ export function ButtonLoadingState({
       )}
     </button>
   );
-}
+});
