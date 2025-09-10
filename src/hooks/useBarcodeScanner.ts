@@ -9,18 +9,26 @@ interface BarcodeScannerProps {
 const extractSerialNumber = (rawValue: string | null): string | null => {
   if (!rawValue) return null;
   
+  console.log('🔍 Extracting serial from:', rawValue);
+  
   // Remove any non-digit characters
   const digitsOnly = rawValue.replace(/[^0-9]/g, '');
+  console.log('📊 Digits only:', digitsOnly, 'Length:', digitsOnly.length);
   
   // Check if we have exactly 20 digits
   if (digitsOnly.length === 20) {
+    console.log('✅ Exact 20 digits found:', digitsOnly);
     return digitsOnly;
   }
   
   // If not exactly 20 digits, try to find a 20-digit sequence
-  const digitGroups = digitsOnly.match(/.{1,20}/g) || [];
+  // Split into groups of 20 digits (matching Android app logic)
+  const digitGroups = digitsOnly.match(/.{20}/g) || [];
+  console.log('🔢 20-digit groups:', digitGroups);
+  
   for (const group of digitGroups) {
     if (group.length === 20) {
+      console.log('✅ 20-digit group found:', group);
       return group;
     }
   }
@@ -28,9 +36,12 @@ const extractSerialNumber = (rawValue: string | null): string | null => {
   // If still no 20-digit sequence found, try to extract from the middle
   if (digitsOnly.length > 20) {
     const startIndex = Math.floor((digitsOnly.length - 20) / 2);
-    return digitsOnly.substring(startIndex, startIndex + 20);
+    const extracted = digitsOnly.substring(startIndex, startIndex + 20);
+    console.log('🎯 Extracted from middle:', extracted);
+    return extracted;
   }
   
+  console.log('❌ No 20-digit serial found');
   return null;
 };
 
@@ -193,15 +204,17 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
         
         const rawValue = data.codeResult.code;
         console.log('Barcode detected:', rawValue);
+        console.log('Barcode type:', data.codeResult.format);
         
         // Extract 20-digit serial number (matching Android app logic)
         const serialNumber = extractSerialNumber(rawValue);
         if (serialNumber) {
-          console.log('Valid serial number extracted:', serialNumber);
+          console.log('✅ Valid serial number extracted:', serialNumber);
           onDetected(serialNumber);
           stopScanning();
         } else {
-          console.warn('Invalid barcode format - no 20-digit serial found in:', rawValue);
+          console.warn('❌ Invalid barcode format - no 20-digit serial found in:', rawValue);
+          console.log('Digits only:', rawValue.replace(/[^0-9]/g, ''));
           // Continue scanning for valid barcode
         }
       });
