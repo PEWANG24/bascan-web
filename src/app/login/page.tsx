@@ -106,6 +106,11 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-center">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-blue-700 font-medium">
+                📱 <strong>Web Portal Notice:</strong> This portal is only for SIM scanning and start key requests. For all other functions, please use the mobile app.
+              </p>
+            </div>
             <p className="text-xs text-gray-500 font-medium">
               Brand Ambassador Portal
             </p>
@@ -115,7 +120,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-green-100 text-xs">
-            © 2024 MANAAL SSP. All rights reserved.
+            © 2025 MANAAL SSP. All rights reserved.
           </p>
         </div>
       </div>
