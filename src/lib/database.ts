@@ -480,8 +480,8 @@ export const saveLocalActivation = (serial: string, marketArea: string, userId: 
   }
 };
 
-// Check for duplicate serial in scan_activations (like Android app)
-export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> => {
+// Check for duplicate serial in scan_activations and return duplicate info
+export const checkFirestoreDuplicate = async (serial: string): Promise<{isDuplicate: boolean, duplicateInfo?: any}> => {
   try {
     console.log('🔍 Checking for duplicate serial in Firestore:', serial);
     
@@ -494,16 +494,31 @@ export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> 
     const querySnapshot = await getDocs(q);
     const isDuplicate = !querySnapshot.empty;
     
+    let duplicateInfo = null;
+    if (isDuplicate && querySnapshot.docs.length > 0) {
+      const duplicateDoc = querySnapshot.docs[0].data();
+      duplicateInfo = {
+        baName: duplicateDoc.baName || duplicateDoc.userName || 'Unknown',
+        vanShop: duplicateDoc.vanShop || duplicateDoc.dealerName || 'Unknown',
+        activationDate: duplicateDoc.activationDate || new Date(duplicateDoc.timestamp).toLocaleDateString(),
+        scanId: duplicateDoc.scanId,
+        timestamp: duplicateDoc.timestamp
+      };
+    }
+    
     console.log('🔍 Firestore duplicate check result:', {
       serial,
       isDuplicate,
       foundDocuments: querySnapshot.docs.length,
+      duplicateInfo,
       documents: querySnapshot.docs.map(doc => ({
         id: doc.id,
         simSerial: doc.data().simSerial,
         timestamp: doc.data().timestamp,
         scanId: doc.data().scanId,
         activationDate: doc.data().activationDate,
+        baName: doc.data().baName || doc.data().userName,
+        vanShop: doc.data().vanShop || doc.data().dealerName,
         userId: doc.data().idNumber || doc.data().userId
       }))
     });
@@ -527,10 +542,10 @@ export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> 
       });
     }
     
-    return isDuplicate; // Return true if duplicate exists
+    return { isDuplicate, duplicateInfo };
   } catch (error) {
     console.error('Error checking Firestore duplicate:', error);
-    return false; // Assume no duplicate if error
+    return { isDuplicate: false };
   }
 };
 

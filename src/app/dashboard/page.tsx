@@ -243,13 +243,19 @@ export default function DashboardPage() {
       // STEP 3: Firestore duplicate check (fallback - only if cache is empty)
       showLoadingModal('🔍 Final duplicate check...', 'Checking Duplicates');
       console.log('🔍 Starting Firebase duplicate check for:', serialNumber);
-      const isFirestoreDuplicate = await checkFirestoreDuplicate(serialNumber);
-      console.log('🔍 Firebase duplicate check result:', isFirestoreDuplicate);
+      const duplicateResult = await checkFirestoreDuplicate(serialNumber);
+      console.log('🔍 Firebase duplicate check result:', duplicateResult);
       
-      if (isFirestoreDuplicate) {
+      if (duplicateResult.isDuplicate) {
         console.log('🚫 DUPLICATE FOUND - Blocking submission');
         hideModal();
-        showErrorModal('This SIM serial has already been activated and exists in the server. Please use a different SIM.', 'Duplicate Found');
+        
+        const duplicateInfo = duplicateResult.duplicateInfo;
+        const errorMessage = duplicateInfo 
+          ? `This SIM serial has already been activated by ${duplicateInfo.baName} from ${duplicateInfo.vanShop} on ${duplicateInfo.activationDate}.\n\nPlease use a different SIM.`
+          : 'This SIM serial has already been activated and exists in the server. Please use a different SIM.';
+        
+        showErrorModal(errorMessage, 'Duplicate Found');
         setIsSubmittingActivation(false);
         return;
       }
