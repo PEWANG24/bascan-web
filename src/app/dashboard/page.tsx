@@ -397,8 +397,8 @@ export default function DashboardPage() {
                 onClick={() => setActiveTab('activation')}
                 className={`flex-1 flex flex-col items-center py-4 px-2 transition-all duration-200 ${
                   activeTab === 'activation'
-                    ? 'text-blue-600 border-b-3 border-blue-600 bg-blue-50'
-                    : 'text-gray-500 hover:text-blue-600 hover:bg-blue-25'
+                    ? 'text-orange-600 border-b-4 border-orange-500 bg-gradient-to-b from-orange-50 to-orange-100'
+                    : 'text-gray-500 hover:text-orange-600 hover:bg-orange-25'
                 }`}
               >
                 <span className="text-2xl mb-1">📱</span>
@@ -410,8 +410,8 @@ export default function DashboardPage() {
                 onClick={() => setActiveTab('startkey')}
                 className={`flex-1 flex flex-col items-center py-4 px-2 transition-all duration-200 ${
                   activeTab === 'startkey'
-                    ? 'text-purple-600 border-b-3 border-purple-600 bg-purple-50'
-                    : 'text-gray-500 hover:text-purple-600 hover:bg-purple-25'
+                    ? 'text-teal-600 border-b-4 border-teal-500 bg-gradient-to-b from-teal-50 to-teal-100'
+                    : 'text-gray-500 hover:text-teal-600 hover:bg-teal-25'
                 }`}
               >
                 <span className="text-2xl mb-1">🔑</span>
@@ -422,9 +422,9 @@ export default function DashboardPage() {
 
           {/* SIM Activation Form */}
           {activeTab === 'activation' && (
-            <div className="bg-white overflow-hidden shadow-xl rounded-xl mb-6 border-l-4 border-blue-500">
+            <div className="bg-white overflow-hidden shadow-xl rounded-xl mb-6 border-l-4 border-orange-500">
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-black text-blue-800 mb-4 flex items-center space-x-2">
+                <h3 className="text-lg leading-6 font-black text-orange-800 mb-4 flex items-center space-x-2">
                   <span>📱</span>
                   <span>Activate SIM Card</span>
                 </h3>
@@ -515,13 +515,13 @@ export default function DashboardPage() {
 
           {/* Start Key Request Section - Direct Method Selection */}
           {activeTab === 'startkey' && (
-            <div className="bg-white overflow-hidden shadow-xl rounded-xl mb-6 border-l-4 border-purple-500">
+            <div className="bg-white overflow-hidden shadow-xl rounded-xl mb-6 border-l-4 border-teal-500">
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-black text-purple-800 mb-4 flex items-center space-x-2">
+                <h3 className="text-lg leading-6 font-black text-teal-800 mb-4 flex items-center space-x-2">
                   <span>🔑</span>
                   <span>Start Key Requests</span>
                 </h3>
-                <p className="text-sm text-purple-700 mb-4 font-bold">
+                <p className="text-sm text-teal-700 mb-4 font-bold">
                   Choose how you want to submit the start key request:
                 </p>
                 
