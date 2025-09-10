@@ -485,6 +485,7 @@ export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> 
   try {
     console.log('🔍 Checking for duplicate serial in Firestore:', serial);
     
+    // First try: Query all scan_activations for this serial (not filtered by user)
     const q = query(
       collection(db, 'scan_activations'),
       where('simSerial', '==', serial)
@@ -502,7 +503,8 @@ export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> 
         simSerial: doc.data().simSerial,
         timestamp: doc.data().timestamp,
         scanId: doc.data().scanId,
-        activationDate: doc.data().activationDate
+        activationDate: doc.data().activationDate,
+        userId: doc.data().idNumber || doc.data().userId
       }))
     });
     
@@ -608,7 +610,7 @@ export const loadAndCacheScanActivations = async (userId: string): Promise<void>
       collection(db, 'scan_activations'),
       where('idNumber', '==', userId),
       orderBy('timestamp', 'desc'),
-      limit(500) // Increased limit for better duplicate checking with large datasets
+      limit(2000) // Load more data to cover all possible duplicates
     );
     
     const querySnapshot = await getDocs(q);
