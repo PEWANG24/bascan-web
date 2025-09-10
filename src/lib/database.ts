@@ -344,8 +344,9 @@ export const checkLocalDuplicate = (serial: string): boolean => {
   if (typeof window === 'undefined') return false;
   
   try {
-    const today = new Date();
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     
     // Get today's activations from localStorage
     const todayActivations = JSON.parse(localStorage.getItem('today_activations') || '[]');
@@ -354,14 +355,28 @@ export const checkLocalDuplicate = (serial: string): boolean => {
       serial,
       todayActivations,
       startOfToday: startOfToday.toISOString(),
-      currentTime: new Date().toISOString()
+      endOfToday: endOfToday.toISOString(),
+      currentTime: now.toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
     
-    // Check if serial exists in today's activations
-    const isDuplicate = todayActivations.some((activation: any) => 
-      activation.serialNumber === serial && 
-      new Date(activation.timestamp) >= startOfToday
-    );
+    // Check if serial exists in today's activations (using local time)
+    const isDuplicate = todayActivations.some((activation: any) => {
+      const activationTime = new Date(activation.timestamp);
+      const isToday = activationTime >= startOfToday && activationTime < endOfToday;
+      const isSameSerial = activation.serialNumber === serial;
+      
+      console.log('🔍 Checking activation:', {
+        serialNumber: activation.serialNumber,
+        timestamp: activation.timestamp,
+        activationTime: activationTime.toISOString(),
+        isToday,
+        isSameSerial,
+        isMatch: isToday && isSameSerial
+      });
+      
+      return isToday && isSameSerial;
+    });
     
     console.log('🔍 Local duplicate check result:', isDuplicate);
     return isDuplicate;
@@ -376,8 +391,8 @@ export const saveLocalActivation = (serial: string, marketArea: string, userId: 
   if (typeof window === 'undefined') return;
   
   try {
-    const today = new Date();
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     // Get existing today's activations
     const todayActivations = JSON.parse(localStorage.getItem('today_activations') || '[]');
@@ -392,10 +407,18 @@ export const saveLocalActivation = (serial: string, marketArea: string, userId: 
     
     todayActivations.push(newActivation);
     
-    // Keep only today's activations (cleanup old ones)
-    const filteredActivations = todayActivations.filter((activation: any) => 
-      new Date(activation.timestamp) >= startOfToday
-    );
+    // Keep only today's activations (cleanup old ones using local time)
+    const filteredActivations = todayActivations.filter((activation: any) => {
+      const activationTime = new Date(activation.timestamp);
+      return activationTime >= startOfToday;
+    });
+    
+    console.log('💾 Saving local activation:', {
+      serial,
+      newActivation,
+      totalActivations: todayActivations.length,
+      filteredActivations: filteredActivations.length
+    });
     
     localStorage.setItem('today_activations', JSON.stringify(filteredActivations));
   } catch (error) {
