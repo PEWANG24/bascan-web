@@ -505,6 +505,45 @@ export const saveLocalActivation = (serial: string, marketArea: string, userId: 
   }
 };
 
+// Direct check if serial exists in scan_activations collection
+export const checkSerialExists = async (serial: string): Promise<{exists: boolean, duplicateInfo?: any}> => {
+  try {
+    console.log('🔍 Direct check if serial exists in scan_activations:', serial);
+    
+    const q = query(
+      collection(db, 'scan_activations'),
+      where('simSerial', '==', serial)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const exists = !querySnapshot.empty;
+    
+    let duplicateInfo = null;
+    if (exists && querySnapshot.docs.length > 0) {
+      const duplicateDoc = querySnapshot.docs[0].data();
+      duplicateInfo = {
+        baName: duplicateDoc.baName || duplicateDoc.userName || 'Unknown',
+        vanShop: duplicateDoc.vanShop || duplicateDoc.dealerName || 'Unknown',
+        activationDate: duplicateDoc.activationDate || new Date(duplicateDoc.timestamp).toLocaleDateString(),
+        scanId: duplicateDoc.scanId,
+        timestamp: duplicateDoc.timestamp
+      };
+    }
+    
+    console.log('🔍 Direct serial existence check result:', {
+      serial,
+      exists,
+      foundDocuments: querySnapshot.docs.length,
+      duplicateInfo
+    });
+    
+    return { exists, duplicateInfo };
+  } catch (error) {
+    console.error('Error checking serial existence:', error);
+    return { exists: false };
+  }
+};
+
 // Check for duplicate serial in scan_activations and return duplicate info
 export const checkFirestoreDuplicate = async (serial: string): Promise<{isDuplicate: boolean, duplicateInfo?: any}> => {
   try {

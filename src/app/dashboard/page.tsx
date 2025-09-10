@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation, loadAndCacheScanActivations } from '@/lib/database';
+import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation, loadAndCacheScanActivations, checkSerialExists } from '@/lib/database';
 import ModalNotification, { SuccessModal, ErrorModal, LoadingModal } from '@/components/ModalNotification';
 import LoadingSpinner, { ButtonLoadingState } from '@/components/LoadingSpinner';
 
@@ -240,17 +240,17 @@ export default function DashboardPage() {
         return;
       }
 
-      // STEP 3: Firestore duplicate check (fallback - only if cache is empty)
+      // STEP 3: Direct Firestore duplicate check (comprehensive check)
       showLoadingModal('🔍 Final duplicate check...', 'Checking Duplicates');
-      console.log('🔍 Starting Firebase duplicate check for:', serialNumber);
-      const duplicateResult = await checkFirestoreDuplicate(serialNumber);
-      console.log('🔍 Firebase duplicate check result:', duplicateResult);
+      console.log('🔍 Starting direct serial existence check for:', serialNumber);
+      const serialExistsResult = await checkSerialExists(serialNumber);
+      console.log('🔍 Direct serial existence check result:', serialExistsResult);
       
-      if (duplicateResult.isDuplicate) {
-        console.log('🚫 DUPLICATE FOUND - Blocking submission');
+      if (serialExistsResult.exists) {
+        console.log('🚫 SERIAL EXISTS - Blocking submission');
         hideModal();
         
-        const duplicateInfo = duplicateResult.duplicateInfo;
+        const duplicateInfo = serialExistsResult.duplicateInfo;
         const errorMessage = duplicateInfo 
           ? `This SIM serial has already been activated by ${duplicateInfo.baName} from ${duplicateInfo.vanShop} on ${duplicateInfo.activationDate}.\n\nPlease use a different SIM.`
           : 'This SIM serial has already been activated and exists in the server. Please use a different SIM.';
