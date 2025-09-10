@@ -753,7 +753,6 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
                       Use This Serial
                     </button>
                   </div>
-                )}
               </div>
             </div>
           )}
