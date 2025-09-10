@@ -70,6 +70,12 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
       return;
     }
 
+    // Double-check that Quagga is available on window
+    if (!(window as any).Quagga) {
+      setError('Scanner library not available. Please refresh the page.');
+      return;
+    }
+
     // Wait for video element to be ready with retry
     let retries = 0;
     const maxRetries = 5;
@@ -111,9 +117,13 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
 
       const Quagga = (window as any).Quagga;
       
-      // Stop any existing scanner first
-      if (Quagga && typeof Quagga.stop === 'function') {
-        Quagga.stop();
+      // Stop any existing scanner first (only if Quagga is properly initialized)
+      if (Quagga && typeof Quagga.stop === 'function' && Quagga.stop) {
+        try {
+          Quagga.stop();
+        } catch (stopError) {
+          console.warn('Error stopping existing Quagga instance:', stopError);
+        }
       }
 
       // Initialize Quagga with better error handling
@@ -218,7 +228,7 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
     setIsScanning(false);
     try {
       const Quagga = (window as any).Quagga;
-      if (Quagga && typeof Quagga.stop === 'function') {
+      if (Quagga && typeof Quagga.stop === 'function' && Quagga.stop) {
         Quagga.stop();
         console.log('Quagga scanner stopped');
       }
@@ -231,7 +241,7 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
     return () => {
       try {
         const Quagga = (window as any).Quagga;
-        if (Quagga && typeof Quagga.stop === 'function') {
+        if (Quagga && typeof Quagga.stop === 'function' && Quagga.stop) {
           Quagga.stop();
         }
       } catch (error) {
