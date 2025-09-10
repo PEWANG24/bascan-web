@@ -342,7 +342,7 @@ export const isValidICCID = (iccid: string): boolean => {
 // Cache management for scan_activations
 const CACHE_KEY = 'scan_activations_cache';
 const CACHE_EXPIRY_KEY = 'scan_activations_cache_expiry';
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes (increased for global cache)
 
 // Get cached scan_activations data
 export const getCachedScanActivations = (): any[] => {
@@ -616,16 +616,16 @@ export const submitSimActivation = async (activation: Omit<SimActivation, 'id' |
   }
 };
 
-// Load and cache scan_activations data for duplicate checking
+// Load and cache ALL scan_activations data for comprehensive duplicate checking
 export const loadAndCacheScanActivations = async (userId: string): Promise<void> => {
   try {
-    console.log('🔄 Loading scan_activations for caching...');
+    console.log('🔄 Loading ALL scan_activations for global duplicate checking...');
     
+    // Load ALL scan_activations (not filtered by user) for complete duplicate detection
     const q = query(
       collection(db, 'scan_activations'),
-      where('idNumber', '==', userId),
       orderBy('timestamp', 'desc'),
-      limit(2000) // Load more data to cover all possible duplicates
+      limit(5000) // Load up to 5000 most recent activations from ALL users
     );
     
     const querySnapshot = await getDocs(q);
@@ -642,7 +642,13 @@ export const loadAndCacheScanActivations = async (userId: string): Promise<void>
     // Save to cache
     saveCachedScanActivations(activations);
     
-    console.log(`💾 Cached ${activations.length} scan_activations for duplicate checking`);
+    console.log(`💾 Cached ${activations.length} scan_activations from ALL users for comprehensive duplicate checking`);
+    
+    // Also log user-specific count for reference
+    const userActivations = activations.filter(activation => 
+      activation.idNumber === userId || activation.userId === userId
+    );
+    console.log(`📊 User ${userId} has ${userActivations.length} activations out of ${activations.length} total`);
   } catch (error) {
     console.error('Error loading scan_activations for caching:', error);
   }
