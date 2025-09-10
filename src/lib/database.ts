@@ -398,7 +398,7 @@ export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> 
   try {
     const q = query(
       collection(db, 'scan_activations'),
-      where('serialNumber', '==', serial)
+      where('simSerial', '==', serial)
     );
     
     const querySnapshot = await getDocs(q);
