@@ -353,6 +353,11 @@ export default function DashboardPage() {
       
       // Reload requests
       await loadUserRequests(user.idNumber);
+      
+      // Auto-switch back to SIM Activation tab after a short delay for consistency
+      setTimeout(() => {
+        setActiveTab('activation');
+      }, 2000);
     } catch (error: unknown) {
       console.error('Start key request error:', error);
       hideModal();
