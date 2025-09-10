@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation, diagnoseSimStockStructure } from '@/lib/database';
+import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation } from '@/lib/database';
 
 interface User {
   fullName: string;
@@ -304,31 +304,6 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
-  const handleDiagnoseSimStock = async () => {
-    setLoading(true);
-    setMessage('🔍 Diagnosing simStock structure...');
-    
-    try {
-      const structure = await diagnoseSimStockStructure();
-      console.log('SimStock Structure:', structure);
-      
-      setMessage(`📊 SimStock Diagnosis Results:
-      
-Total Documents: ${structure.totalDocuments}
-Has serialNumbers Field: ${structure.hasSerialNumbersField ? '✅ Yes' : '❌ No'}
-Has Nested Structure: ${structure.hasNestedStructure ? '✅ Yes' : '❌ No'}
-Serial Count (flat): ${structure.serialCount}
-Serial Count (nested): ${structure.nestedSerialCount}
-
-Sample Document Fields: ${structure.sampleDocument?.fields?.join(', ') || 'None'}
-
-${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
-    } catch (error) {
-      setMessage(`❌ Diagnosis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
 
   // Step navigation functions
@@ -422,8 +397,8 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
                 onClick={() => setActiveTab('activation')}
                 className={`flex-1 flex flex-col items-center py-4 px-2 transition-all duration-200 ${
                   activeTab === 'activation'
-                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'text-blue-600 border-b-3 border-blue-600 bg-blue-50'
+                    : 'text-gray-500 hover:text-blue-600 hover:bg-blue-25'
                 }`}
               >
                 <span className="text-2xl mb-1">📱</span>
@@ -435,8 +410,8 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
                 onClick={() => setActiveTab('startkey')}
                 className={`flex-1 flex flex-col items-center py-4 px-2 transition-all duration-200 ${
                   activeTab === 'startkey'
-                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'text-purple-600 border-b-3 border-purple-600 bg-purple-50'
+                    : 'text-gray-500 hover:text-purple-600 hover:bg-purple-25'
                 }`}
               >
                 <span className="text-2xl mb-1">🔑</span>
@@ -447,9 +422,9 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
 
           {/* SIM Activation Form */}
           {activeTab === 'activation' && (
-            <div className="bg-white overflow-hidden shadow-xl rounded-xl mb-6 border-l-4 border-green-500">
+            <div className="bg-white overflow-hidden shadow-xl rounded-xl mb-6 border-l-4 border-blue-500">
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-black text-green-800 mb-4 flex items-center space-x-2">
+                <h3 className="text-lg leading-6 font-black text-blue-800 mb-4 flex items-center space-x-2">
                   <span>📱</span>
                   <span>Activate SIM Card</span>
                 </h3>
@@ -540,13 +515,13 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
 
           {/* Start Key Request Section - Direct Method Selection */}
           {activeTab === 'startkey' && (
-            <div className="bg-white overflow-hidden shadow-xl rounded-xl mb-6 border-l-4 border-green-500">
+            <div className="bg-white overflow-hidden shadow-xl rounded-xl mb-6 border-l-4 border-purple-500">
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-black text-green-800 mb-4 flex items-center space-x-2">
+                <h3 className="text-lg leading-6 font-black text-purple-800 mb-4 flex items-center space-x-2">
                   <span>🔑</span>
                   <span>Start Key Requests</span>
                 </h3>
-                <p className="text-sm text-green-700 mb-4 font-bold">
+                <p className="text-sm text-purple-700 mb-4 font-bold">
                   Choose how you want to submit the start key request:
                 </p>
                 
@@ -611,17 +586,6 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
                   </div>
                 </button>
                 
-                {/* Diagnostic Button */}
-                <button
-                  onClick={handleDiagnoseSimStock}
-                  disabled={loading}
-                  className="w-full inline-flex justify-center py-3 px-4 border border-orange-300 shadow-sm text-sm font-medium rounded-lg text-orange-700 bg-orange-100 hover:bg-orange-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50"
-                >
-                  <div className="flex items-center space-x-2">
-                    <span>🔍</span>
-                    <span>{loading ? 'Diagnosing...' : 'Diagnose SimStock'}</span>
-                  </div>
-                </button>
               </div>
             </div>
           )}
