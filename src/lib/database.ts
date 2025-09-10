@@ -396,13 +396,24 @@ export const saveLocalActivation = (serial: string, marketArea: string, userId: 
 // Check for duplicate serial in scan_activations (like Android app)
 export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> => {
   try {
+    console.log('🔍 Checking for duplicate serial:', serial);
+    
     const q = query(
       collection(db, 'scan_activations'),
       where('simSerial', '==', serial)
     );
     
     const querySnapshot = await getDocs(q);
-    return !querySnapshot.empty; // Return true if duplicate exists
+    const isDuplicate = !querySnapshot.empty;
+    
+    console.log('🔍 Duplicate check result:', {
+      serial,
+      isDuplicate,
+      foundDocuments: querySnapshot.docs.length,
+      documents: querySnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }))
+    });
+    
+    return isDuplicate; // Return true if duplicate exists
   } catch (error) {
     console.error('Error checking duplicate:', error);
     return false; // Assume no duplicate if error
@@ -456,7 +467,12 @@ export const submitSimActivation = async (activation: Omit<SimActivation, 'id' |
     
     const docRef = await addDoc(collection(db, 'scan_activations'), scanData);
     
-    console.log('SIM activation submitted with ID:', scanId);
+    console.log('✅ SIM activation submitted successfully:', {
+      scanId,
+      simSerial: activation.serialNumber,
+      documentId: docRef.id,
+      savedData: scanData
+    });
     return scanId;
   } catch (error) {
     console.error('Error submitting SIM activation:', error);
