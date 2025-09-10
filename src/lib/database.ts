@@ -467,12 +467,15 @@ export const getUserSimActivations = async (userId: string): Promise<SimActivati
   try {
     const q = query(
       collection(db, 'scan_activations'),
-      where('userId', '==', userId),
+      where('idNumber', '==', userId),
       orderBy('timestamp', 'desc')
     );
     
     const querySnapshot = await getDocs(q);
     const activations: SimActivation[] = [];
+    
+    console.log('Querying SIM activations for userId:', userId);
+    console.log('Found documents:', querySnapshot.size);
     
     querySnapshot.forEach((doc) => {
       const data = doc.data();
