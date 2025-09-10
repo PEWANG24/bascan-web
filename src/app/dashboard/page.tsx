@@ -207,12 +207,20 @@ export default function DashboardPage() {
       saveLocalActivation(serialNumber.trim(), marketArea.trim(), user.idNumber);
 
       // Success message (like Android app)
-      setMessage('✅ SIM activation completed successfully!\n\nYour activation has been recorded and uploaded to the server. You can now scan another SIM or return to the dashboard.');
-      setSerialNumber('');
+      setMessage('✅ SIM activation completed successfully!\n\nYour activation has been recorded and uploaded to the server. Now you can request a start key for this SIM.');
+      
+      // Keep the serial number for start key request
+      // setSerialNumber(''); // Don't clear it, keep it for start key
       setMarketArea('');
       
       // Reload activations
       await loadUserActivations(user.idNumber);
+      
+      // Auto-switch to Start Key tab after a short delay for smooth transition
+      setTimeout(() => {
+        setActiveTab('startkey');
+        setMessage('✅ SIM activation completed successfully!\n\nNow you can request a start key for this SIM. Choose your preferred method below.');
+      }, 1000);
     } catch (error: unknown) {
       console.error('Activation error:', error);
       setMessage(`An error occurred while processing the activation. Please try again.`);
