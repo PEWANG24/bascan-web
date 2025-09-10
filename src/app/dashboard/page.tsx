@@ -61,6 +61,14 @@ export default function DashboardPage() {
     }
   });
 
+  // Handle scanner start with proper timing
+  const handleStartScanning = () => {
+    // Small delay to ensure video element is rendered
+    setTimeout(() => {
+      startScanning();
+    }, 100);
+  };
+
   useEffect(() => {
     // Check if user is logged in
     const userData = localStorage.getItem('user');
@@ -696,7 +704,7 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
                       Cancel
                     </button>
                     <button
-                      onClick={startScanning}
+                      onClick={handleStartScanning}
                       disabled={isScanning}
                       className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
                     >

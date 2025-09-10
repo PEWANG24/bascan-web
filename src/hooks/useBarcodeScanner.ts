@@ -47,6 +47,7 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
         const Quagga = (await import('quagga')).default;
         (window as any).Quagga = Quagga;
         setQuaggaLoaded(true);
+        console.log('QuaggaJS loaded successfully');
       } catch (error) {
         console.error('Failed to load Quagga:', error);
         setError('Failed to load barcode scanner library.');
@@ -56,15 +57,42 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
     loadQuagga();
   }, []);
 
-  const startScanning = async () => {
-    if (!videoRef.current) {
-      setError('Video element not ready');
-      return;
+  // Check if video element is ready when quagga is loaded
+  useEffect(() => {
+    if (quaggaLoaded && videoRef.current) {
+      console.log('Video element is ready for scanning');
     }
+  }, [quaggaLoaded, videoRef.current]);
 
+  const startScanning = async () => {
     if (!quaggaLoaded) {
       setError('Scanner library not loaded yet. Please wait...');
       return;
+    }
+
+    // Wait for video element to be ready with retry
+    let retries = 0;
+    const maxRetries = 5;
+    
+    while (retries < maxRetries) {
+      if (videoRef.current && videoRef.current.offsetParent) {
+        break;
+      }
+      
+      if (retries === maxRetries - 1) {
+        if (!videoRef.current) {
+          setError('Video element not ready. Please try again.');
+          return;
+        }
+        if (!videoRef.current.offsetParent) {
+          setError('Video element not visible. Please ensure the scanner modal is open.');
+          return;
+        }
+      }
+      
+      // Wait 100ms before retry
+      await new Promise(resolve => setTimeout(resolve, 100));
+      retries++;
     }
 
     setIsScanning(true);
