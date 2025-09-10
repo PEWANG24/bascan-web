@@ -368,31 +368,16 @@ export default function DashboardPage() {
 
       <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
         <div className="space-y-4 sm:space-y-6">
-          {/* User Info */}
-          <div className="bg-white overflow-hidden shadow-xl rounded-xl mb-6 border-l-4 border-green-500">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-bold text-green-800 mb-4 flex items-center space-x-2">
+          {/* User Info - Simplified */}
+          <div className="bg-white overflow-hidden shadow-lg rounded-lg mb-6 border-l-4 border-green-500">
+            <div className="px-4 py-4">
+              <h3 className="text-base font-bold text-green-800 mb-3 flex items-center space-x-2">
                 <span>👤</span>
-                <span>Your Information</span>
+                <span>Welcome, {user.fullName}</span>
               </h3>
-              <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:gap-y-6 sm:grid-cols-2">
-                <div>
-                  <dt className="text-sm font-bold text-gray-700">Full Name</dt>
-                  <dd className="mt-1 text-sm font-semibold text-gray-900">{user.fullName}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-bold text-gray-700">ID Number</dt>
-                  <dd className="mt-1 text-sm font-semibold text-gray-900">{user.idNumber}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-bold text-gray-700">Van Shop</dt>
-                  <dd className="mt-1 text-sm font-semibold text-gray-900">{user.vanShop}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-bold text-gray-700">Dealer Code</dt>
-                  <dd className="mt-1 text-sm font-semibold text-gray-900">{user.dealerCode}</dd>
-                </div>
-              </dl>
+              <p className="text-sm text-gray-600">
+                Van Shop: <span className="font-semibold text-gray-900">{user.vanShop}</span>
+              </p>
             </div>
           </div>
 
