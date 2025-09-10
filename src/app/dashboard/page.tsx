@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation } from '@/lib/database';
-import Toast, { LoadingToast, SuccessToast, ErrorToast } from '@/components/Toast';
+import ModalNotification, { SuccessModal, ErrorModal, LoadingModal } from '@/components/ModalNotification';
 import LoadingSpinner, { ButtonLoadingState } from '@/components/LoadingSpinner';
 
 interface User {
@@ -26,18 +26,16 @@ export default function DashboardPage() {
   const [activations, setActivations] = useState<SimActivation[]>([]);
   const [activeTab, setActiveTab] = useState<'activation' | 'startkey'>('activation');
   
-  // Toast notification states
-  const [toast, setToast] = useState<{
+  // Modal notification states
+  const [modal, setModal] = useState<{
     message: string;
     type: 'success' | 'error' | 'info' | 'loading';
     isVisible: boolean;
-    position?: 'top-right' | 'button-context';
-    buttonRef?: React.RefObject<HTMLButtonElement>;
+    title?: string;
   }>({
     message: '',
     type: 'info',
-    isVisible: false,
-    position: 'top-right'
+    isVisible: false
   });
   
   // Loading states for different operations
@@ -72,25 +70,25 @@ export default function DashboardPage() {
   const defaultSerialPattern = '89254021374248037492';
   const router = useRouter();
 
-  // Toast helper functions
-  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'loading', position: 'top-right' | 'button-context' = 'top-right', buttonRef?: React.RefObject<HTMLButtonElement>) => {
-    setToast({ message, type, isVisible: true, position, buttonRef });
+  // Modal notification helper functions
+  const showModal = (message: string, type: 'success' | 'error' | 'info' | 'loading', title?: string) => {
+    setModal({ message, type, isVisible: true, title });
   };
 
-  const hideToast = () => {
-    setToast(prev => ({ ...prev, isVisible: false }));
+  const hideModal = () => {
+    setModal(prev => ({ ...prev, isVisible: false }));
   };
 
-  const showLoadingToast = (message: string, position: 'top-right' | 'button-context' = 'top-right', buttonRef?: React.RefObject<HTMLButtonElement>) => {
-    showToast(message, 'loading', position, buttonRef);
+  const showLoadingModal = (message: string, title?: string) => {
+    showModal(message, 'loading', title);
   };
 
-  const showSuccessToast = (message: string, position: 'top-right' | 'button-context' = 'top-right', buttonRef?: React.RefObject<HTMLButtonElement>) => {
-    showToast(message, 'success', position, buttonRef);
+  const showSuccessModal = (message: string, title?: string) => {
+    showModal(message, 'success', title);
   };
 
-  const showErrorToast = (message: string, position: 'top-right' | 'button-context' = 'top-right', buttonRef?: React.RefObject<HTMLButtonElement>) => {
-    showToast(message, 'error', position, buttonRef);
+  const showErrorModal = (message: string, title?: string) => {
+    showModal(message, 'error', title);
   };
 
   useEffect(() => {
@@ -198,52 +196,52 @@ export default function DashboardPage() {
   const handleSubmitActivation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !serialNumber.trim() || !marketArea.trim()) {
-      showErrorToast('Please fill in all fields.');
+      showErrorModal('Please fill in all fields.', 'Validation Error');
       return;
     }
 
     // Validate ICCID format (exactly 20 digits) - like Android app
     if (!isValidICCID(serialNumber)) {
-      showErrorToast('Invalid ICCID format - must be exactly 20 digits');
+      showErrorModal('Invalid ICCID format - must be exactly 20 digits', 'Validation Error');
       return;
     }
 
     setIsSubmittingActivation(true);
-    showLoadingToast('🔄 Processing SIM activation...', 'button-context', activationButtonRef);
+    showLoadingModal('🔄 Processing SIM activation...', 'Processing');
     setMessage('');
 
     try {
       // STEP 1: Local duplicate check (fast - like Android app)
       const isLocalDuplicate = checkLocalDuplicate(serialNumber);
       if (isLocalDuplicate) {
-        hideToast();
-        showErrorToast('This SIM serial has already been activated locally today. Please check your records.', 'button-context', activationButtonRef);
+        hideModal();
+        showErrorModal('This SIM serial has already been activated locally today. Please check your records.', 'Duplicate Activation');
         setIsSubmittingActivation(false);
         return;
       }
 
       // STEP 2: Fast serial validation against simStock collection (like Android app)
-      showLoadingToast('🔍 Validating SIM serial...', 'button-context', activationButtonRef);
+      showLoadingModal('🔍 Validating SIM serial...', 'Validating');
       const isValidSerial = await validateSerialInSimStock(serialNumber);
       if (!isValidSerial) {
-        hideToast();
-        showErrorToast(getInvalidSerialMessage(serialNumber), 'button-context', activationButtonRef);
+        hideModal();
+        showErrorModal(getInvalidSerialMessage(serialNumber), 'Invalid Serial');
         setIsSubmittingActivation(false);
         return;
       }
 
       // STEP 3: Firestore duplicate check (like Android app)
-      showLoadingToast('🔍 Checking for duplicates...', 'button-context', activationButtonRef);
+      showLoadingModal('🔍 Checking for duplicates...', 'Checking Duplicates');
       const isFirestoreDuplicate = await checkFirestoreDuplicate(serialNumber);
       if (isFirestoreDuplicate) {
-        hideToast();
-        showErrorToast('This SIM serial has already been activated and exists in the server. Please use a different SIM.', 'button-context', activationButtonRef);
+        hideModal();
+        showErrorModal('This SIM serial has already been activated and exists in the server. Please use a different SIM.', 'Duplicate Found');
         setIsSubmittingActivation(false);
         return;
       }
 
       // STEP 4: Submit SIM activation
-      showLoadingToast('📤 Submitting activation to server...', 'button-context', activationButtonRef);
+      showLoadingModal('📤 Submitting activation to server...', 'Submitting');
       await submitSimActivation({
         serialNumber: serialNumber.trim(),
         marketArea: marketArea.trim(),
@@ -258,12 +256,12 @@ export default function DashboardPage() {
       });
 
       // STEP 5: Save to local storage (like Android app)
-      showLoadingToast('💾 Saving to local storage...', 'button-context', activationButtonRef);
+      showLoadingModal('💾 Saving to local storage...', 'Saving');
       saveLocalActivation(serialNumber.trim(), marketArea.trim(), user.idNumber);
 
       // Success message (like Android app)
-      hideToast();
-      showSuccessToast('✅ SIM activation completed successfully! Your activation has been recorded and uploaded to the server.', 'button-context', activationButtonRef);
+      hideModal();
+      showSuccessModal('✅ SIM activation completed successfully!\n\nYour activation has been recorded and uploaded to the server.\n\nNow you can request a start key for this SIM.', 'Activation Successful');
       
       // Keep the serial number for start key request
       // setSerialNumber(''); // Don't clear it, keep it for start key
@@ -275,12 +273,11 @@ export default function DashboardPage() {
       // Auto-switch to Start Key tab after a short delay for smooth transition
       setTimeout(() => {
         setActiveTab('startkey');
-        showSuccessToast('Now you can request a start key for this SIM. Choose your preferred method below.', 'top-right');
-      }, 1500);
+      }, 2000);
     } catch (error: unknown) {
       console.error('Activation error:', error);
-      hideToast();
-      showErrorToast('An error occurred while processing the activation. Please try again.', 'button-context', activationButtonRef);
+      hideModal();
+      showErrorModal('An error occurred while processing the activation. Please try again.', 'Activation Error');
     } finally {
       setIsSubmittingActivation(false);
     }
@@ -289,27 +286,27 @@ export default function DashboardPage() {
   const handleSubmitStartKeyRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !customerName.trim() || !customerId.trim() || !customerDob.trim() || !customerPhone.trim()) {
-      showErrorToast('Please fill in all customer information fields.');
+      showErrorModal('Please fill in all customer information fields.', 'Validation Error');
       return;
     }
     
     if (!selectedTeamLeader) {
-      showErrorToast('Team leader not found for your van shop. Please contact support.');
+      showErrorModal('Team leader not found for your van shop. Please contact support.', 'Team Leader Error');
       return;
     }
 
     setIsSubmittingStartKey(true);
-    showLoadingToast('🔄 Processing start key request...', 'button-context', startKeyButtonRef);
+    showLoadingModal('🔄 Processing start key request...', 'Processing');
     setMessage('');
 
     try {
       // Check for duplicate start key request (like Android app)
       if (serialNumber.trim()) {
-        showLoadingToast('🔍 Checking for duplicate requests...', 'button-context', startKeyButtonRef);
+        showLoadingModal('🔍 Checking for duplicate requests...', 'Checking Duplicates');
         const isDuplicate = await checkStartKeyDuplicate(serialNumber.trim());
         if (isDuplicate) {
-          hideToast();
-          showErrorToast('A Start Key request for this SIM serial has already been submitted.', 'button-context', startKeyButtonRef);
+          hideModal();
+          showErrorModal('A Start Key request for this SIM serial has already been submitted.', 'Duplicate Request');
           setIsSubmittingStartKey(false);
           return;
         }
@@ -320,7 +317,7 @@ export default function DashboardPage() {
       const teamLeaderName = selectedLeader ? selectedLeader.name : 'Unknown Team Leader';
 
       // Submit start key request with customer information (like Android app)
-      showLoadingToast('📤 Submitting request to server...', 'button-context', startKeyButtonRef);
+      showLoadingModal('📤 Submitting request to server...', 'Submitting');
       const requestData: Omit<StartKeyRequest, 'requestId' | 'submittedAt'> = {
         customerName: customerName.trim(),
         customerId: customerId.trim(),
@@ -342,8 +339,8 @@ export default function DashboardPage() {
       
       await submitStartKeyRequest(requestData);
 
-      hideToast();
-      showSuccessToast('🎉 Start key request submitted successfully! You will receive an SMS notification once your team leader processes the request.', 'button-context', startKeyButtonRef);
+      hideModal();
+      showSuccessModal('🎉 Start key request submitted successfully!\n\n📱 You will receive an SMS notification once your team leader processes the request.\n\nPlease wait for confirmation.', 'Request Submitted');
       
       // Reset form
       setCustomerName('');
@@ -358,8 +355,8 @@ export default function DashboardPage() {
       await loadUserRequests(user.idNumber);
     } catch (error: unknown) {
       console.error('Start key request error:', error);
-      hideToast();
-      showErrorToast('An error occurred while processing the request. Please try again.', 'button-context', startKeyButtonRef);
+      hideModal();
+      showErrorModal('An error occurred while processing the request. Please try again.', 'Request Error');
     } finally {
       setIsSubmittingStartKey(false);
     }
@@ -1179,14 +1176,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Toast Notifications */}
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={hideToast}
-        position={toast.position}
-        buttonRef={toast.buttonRef}
+      {/* Modal Notifications */}
+      <ModalNotification
+        message={modal.message}
+        type={modal.type}
+        isVisible={modal.isVisible}
+        onClose={hideModal}
+        title={modal.title}
       />
     </div>
   );
