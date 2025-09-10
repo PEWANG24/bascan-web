@@ -57,7 +57,15 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
   }, []);
 
   const startScanning = async () => {
-    if (!videoRef.current || !quaggaLoaded) return;
+    if (!videoRef.current) {
+      setError('Video element not ready');
+      return;
+    }
+
+    if (!quaggaLoaded) {
+      setError('Scanner library not loaded yet. Please wait...');
+      return;
+    }
 
     setIsScanning(true);
     setError(null);
@@ -68,27 +76,27 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
         throw new Error('Camera not supported on this device');
       }
 
-      // Request camera permission first
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment", // Use back camera on mobile
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        }
-      });
-
-      // Stop the stream as Quagga will create its own
-      stream.getTracks().forEach(track => track.stop());
+      // Check if we're on HTTPS (required for camera access)
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        throw new Error('Camera access requires HTTPS. Please use HTTPS or localhost.');
+      }
 
       const Quagga = (window as any).Quagga;
+      
+      // Stop any existing scanner first
+      if (Quagga && typeof Quagga.stop === 'function') {
+        Quagga.stop();
+      }
+
+      // Initialize Quagga with better error handling
       Quagga.init({
         inputStream: {
           name: "Live",
           type: "LiveStream",
           target: videoRef.current,
           constraints: {
-            width: 640,
-            height: 480,
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
             facingMode: "environment" // Use back camera
           }
         },
@@ -113,13 +121,27 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
       }, (err: any) => {
         if (err) {
           console.error('Quagga initialization error:', err);
-          setError('Failed to initialize camera. Please check permissions and try again.');
-          onError?.('Failed to initialize camera. Please check permissions and try again.');
+          let errorMessage = 'Failed to initialize camera. ';
+          
+          if (err.name === 'NotAllowedError') {
+            errorMessage += 'Camera permission denied. Please allow camera access and try again.';
+          } else if (err.name === 'NotFoundError') {
+            errorMessage += 'No camera found. Please connect a camera and try again.';
+          } else if (err.name === 'NotReadableError') {
+            errorMessage += 'Camera is already in use by another application.';
+          } else {
+            errorMessage += 'Please check camera permissions and try again.';
+          }
+          
+          setError(errorMessage);
+          onError?.(errorMessage);
           setIsScanning(false);
           return;
         }
+        
         try {
           Quagga.start();
+          console.log('Quagga scanner started successfully');
         } catch (startError) {
           console.error('Error starting Quagga:', startError);
           setError('Failed to start camera.');
@@ -127,23 +149,39 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
         }
       });
 
+      // Set up barcode detection handler
       Quagga.onDetected((data: any) => {
+        if (!isScanning) return; // Prevent processing if scanner is stopped
+        
         const rawValue = data.codeResult.code;
         console.log('Barcode detected:', rawValue);
         
         // Extract 20-digit serial number (matching Android app logic)
         const serialNumber = extractSerialNumber(rawValue);
         if (serialNumber) {
+          console.log('Valid serial number extracted:', serialNumber);
           onDetected(serialNumber);
           stopScanning();
         } else {
-          console.warn('Invalid barcode format - no 20-digit serial found');
+          console.warn('Invalid barcode format - no 20-digit serial found in:', rawValue);
           // Continue scanning for valid barcode
         }
       });
-    } catch (initError) {
+
+    } catch (initError: any) {
       console.error('Error initializing Quagga:', initError);
-      setError('Failed to initialize barcode scanner.');
+      let errorMessage = 'Failed to initialize barcode scanner. ';
+      
+      if (initError.message.includes('HTTPS')) {
+        errorMessage += initError.message;
+      } else if (initError.message.includes('Camera not supported')) {
+        errorMessage += initError.message;
+      } else {
+        errorMessage += 'Please check your camera and try again.';
+      }
+      
+      setError(errorMessage);
+      onError?.(errorMessage);
       setIsScanning(false);
     }
   };
@@ -154,6 +192,7 @@ export const useBarcodeScanner = ({ onDetected, onError }: BarcodeScannerProps) 
       const Quagga = (window as any).Quagga;
       if (Quagga && typeof Quagga.stop === 'function') {
         Quagga.stop();
+        console.log('Quagga scanner stopped');
       }
     } catch (error) {
       console.warn('Error stopping Quagga:', error);

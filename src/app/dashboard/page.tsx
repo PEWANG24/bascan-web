@@ -682,7 +682,8 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
                 
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-gray-600">
-                    {scannerError ? 'Camera access failed. You can enter the serial manually below.' : 'Point camera at barcode'}
+                    {scannerError ? 'Camera access failed. You can enter the serial manually below.' : 
+                     isScanning ? 'Scanning... Point camera at barcode' : 'Click Start Scan to begin'}
                   </div>
                   <div className="flex space-x-3">
                     <button
