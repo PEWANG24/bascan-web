@@ -4,6 +4,7 @@ import {
   query, 
   where, 
   orderBy, 
+  limit,
   getDocs, 
   Timestamp 
 } from 'firebase/firestore';
@@ -463,12 +464,13 @@ export const submitSimActivation = async (activation: Omit<SimActivation, 'id' |
   }
 };
 
-export const getUserSimActivations = async (userId: string): Promise<SimActivation[]> => {
+export const getUserSimActivations = async (userId: string, limitCount: number = 30): Promise<SimActivation[]> => {
   try {
     const q = query(
       collection(db, 'scan_activations'),
       where('idNumber', '==', userId),
-      orderBy('timestamp', 'desc')
+      orderBy('timestamp', 'desc'),
+      limit(limitCount)
     );
     
     const querySnapshot = await getDocs(q);
