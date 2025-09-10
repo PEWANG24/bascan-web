@@ -339,51 +339,105 @@ export const isValidICCID = (iccid: string): boolean => {
   return /^\d{20}$/.test(iccid);
 };
 
-// Local duplicate check (like Android app) - checks localStorage for recent activations
-export const checkLocalDuplicate = (serial: string): boolean => {
+// Cache management for scan_activations
+const CACHE_KEY = 'scan_activations_cache';
+const CACHE_EXPIRY_KEY = 'scan_activations_cache_expiry';
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Get cached scan_activations data
+export const getCachedScanActivations = (): any[] => {
+  if (typeof window === 'undefined') return [];
+  
+  try {
+    const cacheExpiry = localStorage.getItem(CACHE_EXPIRY_KEY);
+    if (!cacheExpiry || Date.now() > parseInt(cacheExpiry)) {
+      console.log('🔄 Cache expired, clearing cached data');
+      localStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_EXPIRY_KEY);
+      return [];
+    }
+    
+    const cachedData = localStorage.getItem(CACHE_KEY);
+    return cachedData ? JSON.parse(cachedData) : [];
+  } catch (error) {
+    console.error('Error getting cached scan activations:', error);
+    return [];
+  }
+};
+
+// Save scan_activations data to cache
+export const saveCachedScanActivations = (activations: any[]): void => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const expiryTime = Date.now() + CACHE_DURATION;
+    localStorage.setItem(CACHE_KEY, JSON.stringify(activations));
+    localStorage.setItem(CACHE_EXPIRY_KEY, expiryTime.toString());
+    
+    console.log('💾 Cached scan activations:', {
+      count: activations.length,
+      expiryTime: new Date(expiryTime).toISOString()
+    });
+  } catch (error) {
+    console.error('Error saving cached scan activations:', error);
+  }
+};
+
+// Add new activation to cache
+export const addToCachedScanActivations = (activation: any): void => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const cachedActivations = getCachedScanActivations();
+    cachedActivations.push(activation);
+    saveCachedScanActivations(cachedActivations);
+    
+    console.log('➕ Added to cache:', {
+      simSerial: activation.simSerial,
+      totalCached: cachedActivations.length
+    });
+  } catch (error) {
+    console.error('Error adding to cached scan activations:', error);
+  }
+};
+
+// Check for duplicate using cached data (primary method)
+export const checkCachedDuplicate = (serial: string): boolean => {
   if (typeof window === 'undefined') return false;
   
   try {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const cachedActivations = getCachedScanActivations();
     
-    // Get today's activations from localStorage
-    const todayActivations = JSON.parse(localStorage.getItem('today_activations') || '[]');
-    
-    console.log('🔍 Local duplicate check details:', {
+    console.log('🔍 Checking cached duplicates:', {
       serial,
-      todayActivations,
-      startOfToday: startOfToday.toISOString(),
-      endOfToday: endOfToday.toISOString(),
-      currentTime: now.toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      cachedCount: cachedActivations.length,
+      cacheExpiry: localStorage.getItem(CACHE_EXPIRY_KEY)
     });
     
-    // Check if serial exists in today's activations (using local time)
-    const isDuplicate = todayActivations.some((activation: any) => {
-      const activationTime = new Date(activation.timestamp);
-      const isToday = activationTime >= startOfToday && activationTime < endOfToday;
-      const isSameSerial = activation.serialNumber === serial;
+    const isDuplicate = cachedActivations.some((activation: any) => {
+      const isSameSerial = activation.simSerial === serial;
       
-      console.log('🔍 Checking activation:', {
-        serialNumber: activation.serialNumber,
-        timestamp: activation.timestamp,
-        activationTime: activationTime.toISOString(),
-        isToday,
+      console.log('🔍 Checking cached activation:', {
+        simSerial: activation.simSerial,
         isSameSerial,
-        isMatch: isToday && isSameSerial
+        scanId: activation.scanId
       });
       
-      return isToday && isSameSerial;
+      return isSameSerial;
     });
     
-    console.log('🔍 Local duplicate check result:', isDuplicate);
+    console.log('🔍 Cached duplicate check result:', isDuplicate);
     return isDuplicate;
   } catch (error) {
-    console.error('Error checking local duplicate:', error);
+    console.error('Error checking cached duplicate:', error);
     return false;
   }
+};
+
+// Legacy local duplicate check (kept for backward compatibility)
+export const checkLocalDuplicate = (serial: string): boolean => {
+  // This now just calls the cached duplicate check
+  return checkCachedDuplicate(serial);
 };
 
 // Save activation to local storage (like Android app)
@@ -429,7 +483,7 @@ export const saveLocalActivation = (serial: string, marketArea: string, userId: 
 // Check for duplicate serial in scan_activations (like Android app)
 export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> => {
   try {
-    console.log('🔍 Checking for duplicate serial:', serial);
+    console.log('🔍 Checking for duplicate serial in Firestore:', serial);
     
     const q = query(
       collection(db, 'scan_activations'),
@@ -439,16 +493,22 @@ export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> 
     const querySnapshot = await getDocs(q);
     const isDuplicate = !querySnapshot.empty;
     
-    console.log('🔍 Duplicate check result:', {
+    console.log('🔍 Firestore duplicate check result:', {
       serial,
       isDuplicate,
       foundDocuments: querySnapshot.docs.length,
-      documents: querySnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }))
+      documents: querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        simSerial: doc.data().simSerial,
+        timestamp: doc.data().timestamp,
+        scanId: doc.data().scanId,
+        activationDate: doc.data().activationDate
+      }))
     });
     
     return isDuplicate; // Return true if duplicate exists
   } catch (error) {
-    console.error('Error checking duplicate:', error);
+    console.error('Error checking Firestore duplicate:', error);
     return false; // Assume no duplicate if error
   }
 };
@@ -506,10 +566,49 @@ export const submitSimActivation = async (activation: Omit<SimActivation, 'id' |
       documentId: docRef.id,
       savedData: scanData
     });
+    
+    // Add to cache for future duplicate checking
+    addToCachedScanActivations(scanData);
+    
+    // Save to local storage for duplicate checking (legacy)
+    saveLocalActivation(activation.serialNumber, activation.marketArea, activation.userId);
+    
     return scanId;
   } catch (error) {
     console.error('Error submitting SIM activation:', error);
     throw new Error('Failed to submit SIM activation');
+  }
+};
+
+// Load and cache scan_activations data for duplicate checking
+export const loadAndCacheScanActivations = async (userId: string): Promise<void> => {
+  try {
+    console.log('🔄 Loading scan_activations for caching...');
+    
+    const q = query(
+      collection(db, 'scan_activations'),
+      where('idNumber', '==', userId),
+      orderBy('timestamp', 'desc'),
+      limit(100) // Load more data for better duplicate checking
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const activations: any[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      activations.push({
+        id: doc.id,
+        ...data
+      });
+    });
+    
+    // Save to cache
+    saveCachedScanActivations(activations);
+    
+    console.log(`💾 Cached ${activations.length} scan_activations for duplicate checking`);
+  } catch (error) {
+    console.error('Error loading scan_activations for caching:', error);
   }
 };
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation } from '@/lib/database';
+import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation, loadAndCacheScanActivations } from '@/lib/database';
 import ModalNotification, { SuccessModal, ErrorModal, LoadingModal } from '@/components/ModalNotification';
 import LoadingSpinner, { ButtonLoadingState } from '@/components/LoadingSpinner';
 
@@ -101,6 +101,10 @@ export default function DashboardPage() {
 
     const parsedUser = JSON.parse(userData);
     setUser(parsedUser);
+    
+    // Load and cache scan_activations for duplicate checking
+    loadAndCacheScanActivations(parsedUser.idNumber);
+    
     loadUserRequests(parsedUser.idNumber);
     loadUserActivations(parsedUser.idNumber);
     // Load team leaders with user data so we can auto-select based on van shop
@@ -211,20 +215,20 @@ export default function DashboardPage() {
     setMessage('');
 
     try {
-      // STEP 1: Local duplicate check (fast - like Android app)
-      console.log('🔍 Starting local duplicate check for:', serialNumber);
-      const isLocalDuplicate = checkLocalDuplicate(serialNumber);
-      console.log('🔍 Local duplicate check result:', isLocalDuplicate);
+      // STEP 1: Cached duplicate check (fast - uses cached scan_activations data)
+      console.log('🔍 Starting cached duplicate check for:', serialNumber);
+      const isCachedDuplicate = checkLocalDuplicate(serialNumber);
+      console.log('🔍 Cached duplicate check result:', isCachedDuplicate);
       
-      if (isLocalDuplicate) {
-        console.log('🚫 LOCAL DUPLICATE FOUND - Blocking submission');
+      if (isCachedDuplicate) {
+        console.log('🚫 CACHED DUPLICATE FOUND - Blocking submission');
         hideModal();
-        showErrorModal('This SIM serial has already been activated locally today. Please check your records.', 'Duplicate Activation');
+        showErrorModal('This SIM serial has already been activated. Please use a different SIM.', 'Duplicate Activation');
         setIsSubmittingActivation(false);
         return;
       }
       
-      console.log('✅ No local duplicate found - Proceeding to validation');
+      console.log('✅ No cached duplicate found - Proceeding to validation');
 
       // STEP 2: Fast serial validation against simStock collection (like Android app)
       showLoadingModal('🔍 Validating SIM serial...', 'Validating');
@@ -236,8 +240,8 @@ export default function DashboardPage() {
         return;
       }
 
-      // STEP 3: Firestore duplicate check (like Android app)
-      showLoadingModal('🔍 Checking for duplicates...', 'Checking Duplicates');
+      // STEP 3: Firestore duplicate check (fallback - only if cache is empty)
+      showLoadingModal('🔍 Final duplicate check...', 'Checking Duplicates');
       console.log('🔍 Starting Firebase duplicate check for:', serialNumber);
       const isFirestoreDuplicate = await checkFirestoreDuplicate(serialNumber);
       console.log('🔍 Firebase duplicate check result:', isFirestoreDuplicate);
