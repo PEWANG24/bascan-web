@@ -506,6 +506,25 @@ export const checkFirestoreDuplicate = async (serial: string): Promise<boolean> 
       }))
     });
     
+    // Additional debugging: Let's also check if there are any documents with similar serials
+    if (querySnapshot.empty) {
+      console.log('🔍 No exact match found, checking for similar serials...');
+      
+      // Check for partial matches to see if there's a data issue
+      const partialQuery = query(
+        collection(db, 'scan_activations'),
+        where('simSerial', '>=', serial.substring(0, 10)),
+        where('simSerial', '<=', serial.substring(0, 10) + '\uf8ff')
+      );
+      
+      const partialSnapshot = await getDocs(partialQuery);
+      console.log('🔍 Partial match check:', {
+        searchPattern: serial.substring(0, 10) + '*',
+        foundSimilar: partialSnapshot.docs.length,
+        similarSerials: partialSnapshot.docs.map(doc => doc.data().simSerial)
+      });
+    }
+    
     return isDuplicate; // Return true if duplicate exists
   } catch (error) {
     console.error('Error checking Firestore duplicate:', error);
@@ -589,7 +608,7 @@ export const loadAndCacheScanActivations = async (userId: string): Promise<void>
       collection(db, 'scan_activations'),
       where('idNumber', '==', userId),
       orderBy('timestamp', 'desc'),
-      limit(100) // Load more data for better duplicate checking
+      limit(500) // Increased limit for better duplicate checking with large datasets
     );
     
     const querySnapshot = await getDocs(q);
