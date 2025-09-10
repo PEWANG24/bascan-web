@@ -405,7 +405,6 @@ export default function DashboardPage() {
                 <span className="text-4xl">📱</span>
                 <span>BA SCAN</span>
               </h1>
-              <p className="text-sm text-green-700 font-bold">Welcome, {user.fullName}</p>
             </div>
             <button
               onClick={handleLogout}
