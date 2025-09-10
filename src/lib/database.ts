@@ -350,11 +350,21 @@ export const checkLocalDuplicate = (serial: string): boolean => {
     // Get today's activations from localStorage
     const todayActivations = JSON.parse(localStorage.getItem('today_activations') || '[]');
     
+    console.log('🔍 Local duplicate check details:', {
+      serial,
+      todayActivations,
+      startOfToday: startOfToday.toISOString(),
+      currentTime: new Date().toISOString()
+    });
+    
     // Check if serial exists in today's activations
-    return todayActivations.some((activation: any) => 
+    const isDuplicate = todayActivations.some((activation: any) => 
       activation.serialNumber === serial && 
       new Date(activation.timestamp) >= startOfToday
     );
+    
+    console.log('🔍 Local duplicate check result:', isDuplicate);
+    return isDuplicate;
   } catch (error) {
     console.error('Error checking local duplicate:', error);
     return false;

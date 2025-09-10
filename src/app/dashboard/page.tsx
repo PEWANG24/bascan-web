@@ -212,13 +212,19 @@ export default function DashboardPage() {
 
     try {
       // STEP 1: Local duplicate check (fast - like Android app)
+      console.log('🔍 Starting local duplicate check for:', serialNumber);
       const isLocalDuplicate = checkLocalDuplicate(serialNumber);
+      console.log('🔍 Local duplicate check result:', isLocalDuplicate);
+      
       if (isLocalDuplicate) {
+        console.log('🚫 LOCAL DUPLICATE FOUND - Blocking submission');
         hideModal();
         showErrorModal('This SIM serial has already been activated locally today. Please check your records.', 'Duplicate Activation');
         setIsSubmittingActivation(false);
         return;
       }
+      
+      console.log('✅ No local duplicate found - Proceeding to validation');
 
       // STEP 2: Fast serial validation against simStock collection (like Android app)
       showLoadingModal('🔍 Validating SIM serial...', 'Validating');
@@ -232,13 +238,19 @@ export default function DashboardPage() {
 
       // STEP 3: Firestore duplicate check (like Android app)
       showLoadingModal('🔍 Checking for duplicates...', 'Checking Duplicates');
+      console.log('🔍 Starting Firebase duplicate check for:', serialNumber);
       const isFirestoreDuplicate = await checkFirestoreDuplicate(serialNumber);
+      console.log('🔍 Firebase duplicate check result:', isFirestoreDuplicate);
+      
       if (isFirestoreDuplicate) {
+        console.log('🚫 DUPLICATE FOUND - Blocking submission');
         hideModal();
         showErrorModal('This SIM serial has already been activated and exists in the server. Please use a different SIM.', 'Duplicate Found');
         setIsSubmittingActivation(false);
         return;
       }
+      
+      console.log('✅ No duplicate found - Proceeding with submission');
 
       // STEP 4: Submit SIM activation
       showLoadingModal('📤 Submitting activation to server...', 'Submitting');
