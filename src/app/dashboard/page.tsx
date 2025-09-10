@@ -414,104 +414,34 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
           </div>
 
 
-          {/* Mobile-Friendly Card Navigation */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            {/* SIM Activation Card */}
-            <div 
-              onClick={() => setActiveTab('activation')}
-              className={`cursor-pointer transform transition-all duration-300 hover:scale-105 ${
-                activeTab === 'activation' 
-                  ? 'ring-4 ring-green-300 shadow-2xl' 
-                  : 'hover:shadow-xl'
-              }`}
-            >
-              <div className={`bg-white rounded-2xl p-6 shadow-lg border-l-4 ${
-                activeTab === 'activation' 
-                  ? 'border-green-500 bg-gradient-to-br from-green-50 to-white' 
-                  : 'border-gray-300 hover:border-green-400'
-              }`}>
-                <div className="flex items-center space-x-4">
-                  <div className={`p-3 rounded-full ${
-                    activeTab === 'activation' 
-                      ? 'bg-green-100' 
-                      : 'bg-gray-100'
-                  }`}>
-                    <span className="text-3xl">📱</span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className={`text-lg font-black ${
-                      activeTab === 'activation' 
-                        ? 'text-green-800' 
-                        : 'text-gray-800'
-                    }`}>
-                      SIM Activation
-                    </h3>
-                    <p className={`text-sm font-semibold ${
-                      activeTab === 'activation' 
-                        ? 'text-green-700' 
-                        : 'text-gray-600'
-                    }`}>
-                      Activate SIM cards and track activations
-                    </p>
-                  </div>
-                  {activeTab === 'activation' && (
-                    <div className="text-green-500">
-                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Start Key Request Card */}
-            <div 
-              onClick={() => setShowMethodSelection(true)}
-              className={`cursor-pointer transform transition-all duration-300 hover:scale-105 ${
-                activeTab === 'startkey' 
-                  ? 'ring-4 ring-green-300 shadow-2xl' 
-                  : 'hover:shadow-xl'
-              }`}
-            >
-              <div className={`bg-white rounded-2xl p-6 shadow-lg border-l-4 ${
-                activeTab === 'startkey' 
-                  ? 'border-green-500 bg-gradient-to-br from-green-50 to-white' 
-                  : 'border-gray-300 hover:border-green-400'
-              }`}>
-                <div className="flex items-center space-x-4">
-                  <div className={`p-3 rounded-full ${
-                    activeTab === 'startkey' 
-                      ? 'bg-green-100' 
-                      : 'bg-gray-100'
-                  }`}>
-                    <span className="text-3xl">🔑</span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className={`text-lg font-black ${
-                      activeTab === 'startkey' 
-                        ? 'text-green-800' 
-                        : 'text-gray-800'
-                    }`}>
-                      Start Key Request
-                    </h3>
-                    <p className={`text-sm font-semibold ${
-                      activeTab === 'startkey' 
-                        ? 'text-green-700' 
-                        : 'text-gray-600'
-                    }`}>
-                      Submit requests to team leaders
-                    </p>
-                  </div>
-                  {activeTab === 'startkey' && (
-                    <div className="text-green-500">
-                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-              </div>
+          {/* Mobile App Style Tab Navigation */}
+          <div className="bg-white rounded-t-2xl shadow-lg mb-6">
+            <div className="flex">
+              {/* SIM Activation Tab */}
+              <button
+                onClick={() => setActiveTab('activation')}
+                className={`flex-1 flex flex-col items-center py-4 px-2 transition-all duration-200 ${
+                  activeTab === 'activation'
+                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="text-2xl mb-1">📱</span>
+                <span className="text-sm font-semibold">SIM Activation</span>
+              </button>
+              
+              {/* Start Key Request Tab */}
+              <button
+                onClick={() => setActiveTab('startkey')}
+                className={`flex-1 flex flex-col items-center py-4 px-2 transition-all duration-200 ${
+                  activeTab === 'startkey'
+                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="text-2xl mb-1">🔑</span>
+                <span className="text-sm font-semibold">Start Key</span>
+              </button>
             </div>
           </div>
 
@@ -617,8 +547,58 @@ ${structure.error ? `Error: ${structure.error}` : 'Diagnosis complete!'}`);
                   <span>Start Key Requests</span>
                 </h3>
                 <p className="text-sm text-green-700 mb-4 font-bold">
-                  Click the Start Key Request card above to begin
+                  Choose how you want to submit the start key request:
                 </p>
+                
+                <div className="space-y-4">
+                  {/* Manual Entry Option */}
+                  <button
+                    onClick={() => {
+                      setSelectedMethod('manual');
+                      // Auto-populate serial number with last scanned serial (like Android app)
+                      if (hasScannedToday && todaySerial) {
+                        setSerialNumber(todaySerial);
+                      }
+                      setShowStartKeyDialog(true);
+                    }}
+                    className="w-full p-4 border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-2xl text-teal-600">✏️</span>
+                        <div className="text-left">
+                          <div className="font-medium text-gray-900">Manual Entry</div>
+                          <div className="text-sm text-gray-500">Enter customer details manually</div>
+                        </div>
+                      </div>
+                      <span className="text-gray-400">▼</span>
+                    </div>
+                  </button>
+                  
+                  {/* ID Photo Capture Option */}
+                  <button
+                    onClick={() => {
+                      setSelectedMethod('photo');
+                      // Auto-populate serial number with last scanned serial (like Android app)
+                      if (hasScannedToday && todaySerial) {
+                        setSerialNumber(todaySerial);
+                      }
+                      setShowIdCapture(true);
+                    }}
+                    className="w-full p-4 border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-2xl text-teal-600">📷</span>
+                        <div className="text-left">
+                          <div className="font-medium text-gray-900">ID Photo Capture</div>
+                          <div className="text-sm text-gray-500">Take photo of ID and enter line number</div>
+                        </div>
+                      </div>
+                      <span className="text-gray-400">▼</span>
+                    </div>
+                  </button>
+                </div>
                 
                 {/* Track My Requests Button */}
                 <button
