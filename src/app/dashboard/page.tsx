@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitStartKeyRequest, validateSerialInSimStock, getInvalidSerialMessage, checkFirestoreDuplicate, getUserStartKeyRequests, StartKeyRequest, submitSimActivation, getUserSimActivations, SimActivation, checkStartKeyDuplicate, isValidICCID, checkLocalDuplicate, saveLocalActivation } from '@/lib/database';
+import Toast, { LoadingToast, SuccessToast, ErrorToast } from '@/components/Toast';
+import LoadingSpinner, { ButtonLoadingState } from '@/components/LoadingSpinner';
 
 interface User {
   fullName: string;
@@ -23,6 +25,21 @@ export default function DashboardPage() {
   const [requests, setRequests] = useState<StartKeyRequest[]>([]);
   const [activations, setActivations] = useState<SimActivation[]>([]);
   const [activeTab, setActiveTab] = useState<'activation' | 'startkey'>('activation');
+  
+  // Toast notification states
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info' | 'loading';
+    isVisible: boolean;
+  }>({
+    message: '',
+    type: 'info',
+    isVisible: false
+  });
+  
+  // Loading states for different operations
+  const [isSubmittingActivation, setIsSubmittingActivation] = useState(false);
+  const [isSubmittingStartKey, setIsSubmittingStartKey] = useState(false);
   
   // Start Key Request form fields (like Android app)
   const [customerName, setCustomerName] = useState('');
@@ -48,6 +65,26 @@ export default function DashboardPage() {
   const defaultSerialPattern = '89254021374248037492';
   const router = useRouter();
 
+  // Toast helper functions
+  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'loading') => {
+    setToast({ message, type, isVisible: true });
+  };
+
+  const hideToast = () => {
+    setToast(prev => ({ ...prev, isVisible: false }));
+  };
+
+  const showLoadingToast = (message: string) => {
+    showToast(message, 'loading');
+  };
+
+  const showSuccessToast = (message: string) => {
+    showToast(message, 'success');
+  };
+
+  const showErrorToast = (message: string) => {
+    showToast(message, 'error');
+  };
 
   useEffect(() => {
     // Check if user is logged in
@@ -153,43 +190,53 @@ export default function DashboardPage() {
 
   const handleSubmitActivation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !serialNumber.trim() || !marketArea.trim()) return;
-
-    // Validate ICCID format (exactly 20 digits) - like Android app
-    if (!isValidICCID(serialNumber)) {
-      setMessage('Invalid ICCID format - must be exactly 20 digits');
+    if (!user || !serialNumber.trim() || !marketArea.trim()) {
+      showErrorToast('Please fill in all fields.');
       return;
     }
 
-    setLoading(true);
+    // Validate ICCID format (exactly 20 digits) - like Android app
+    if (!isValidICCID(serialNumber)) {
+      showErrorToast('Invalid ICCID format - must be exactly 20 digits');
+      return;
+    }
+
+    setIsSubmittingActivation(true);
+    showLoadingToast('🔄 Processing SIM activation...');
     setMessage('');
 
     try {
       // STEP 1: Local duplicate check (fast - like Android app)
       const isLocalDuplicate = checkLocalDuplicate(serialNumber);
       if (isLocalDuplicate) {
-        setMessage('This SIM serial has already been activated locally today. Please check your records.');
-        setLoading(false);
+        hideToast();
+        showErrorToast('This SIM serial has already been activated locally today. Please check your records.');
+        setIsSubmittingActivation(false);
         return;
       }
 
       // STEP 2: Fast serial validation against simStock collection (like Android app)
+      showLoadingToast('🔍 Validating SIM serial...');
       const isValidSerial = await validateSerialInSimStock(serialNumber);
       if (!isValidSerial) {
-        setMessage(getInvalidSerialMessage(serialNumber));
-        setLoading(false);
+        hideToast();
+        showErrorToast(getInvalidSerialMessage(serialNumber));
+        setIsSubmittingActivation(false);
         return;
       }
 
       // STEP 3: Firestore duplicate check (like Android app)
+      showLoadingToast('🔍 Checking for duplicates...');
       const isFirestoreDuplicate = await checkFirestoreDuplicate(serialNumber);
       if (isFirestoreDuplicate) {
-        setMessage('This SIM serial has already been activated and exists in the server. Please use a different SIM.');
-        setLoading(false);
+        hideToast();
+        showErrorToast('This SIM serial has already been activated and exists in the server. Please use a different SIM.');
+        setIsSubmittingActivation(false);
         return;
       }
 
       // STEP 4: Submit SIM activation
+      showLoadingToast('📤 Submitting activation to server...');
       await submitSimActivation({
         serialNumber: serialNumber.trim(),
         marketArea: marketArea.trim(),
@@ -204,10 +251,12 @@ export default function DashboardPage() {
       });
 
       // STEP 5: Save to local storage (like Android app)
+      showLoadingToast('💾 Saving to local storage...');
       saveLocalActivation(serialNumber.trim(), marketArea.trim(), user.idNumber);
 
       // Success message (like Android app)
-      setMessage('✅ SIM activation completed successfully!\n\nYour activation has been recorded and uploaded to the server. Now you can request a start key for this SIM.');
+      hideToast();
+      showSuccessToast('✅ SIM activation completed successfully! Your activation has been recorded and uploaded to the server.');
       
       // Keep the serial number for start key request
       // setSerialNumber(''); // Don't clear it, keep it for start key
@@ -219,38 +268,42 @@ export default function DashboardPage() {
       // Auto-switch to Start Key tab after a short delay for smooth transition
       setTimeout(() => {
         setActiveTab('startkey');
-        setMessage('✅ SIM activation completed successfully!\n\nNow you can request a start key for this SIM. Choose your preferred method below.');
-      }, 1000);
+        showSuccessToast('Now you can request a start key for this SIM. Choose your preferred method below.');
+      }, 1500);
     } catch (error: unknown) {
       console.error('Activation error:', error);
-      setMessage(`An error occurred while processing the activation. Please try again.`);
+      hideToast();
+      showErrorToast('An error occurred while processing the activation. Please try again.');
     } finally {
-      setLoading(false);
+      setIsSubmittingActivation(false);
     }
   };
 
   const handleSubmitStartKeyRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !customerName.trim() || !customerId.trim() || !customerDob.trim() || !customerPhone.trim()) {
-      setMessage('Please fill in all customer information fields.');
+      showErrorToast('Please fill in all customer information fields.');
       return;
     }
     
     if (!selectedTeamLeader) {
-      setMessage('Team leader not found for your van shop. Please contact support.');
+      showErrorToast('Team leader not found for your van shop. Please contact support.');
       return;
     }
 
-    setLoading(true);
+    setIsSubmittingStartKey(true);
+    showLoadingToast('🔄 Processing start key request...');
     setMessage('');
 
     try {
       // Check for duplicate start key request (like Android app)
       if (serialNumber.trim()) {
+        showLoadingToast('🔍 Checking for duplicate requests...');
         const isDuplicate = await checkStartKeyDuplicate(serialNumber.trim());
         if (isDuplicate) {
-          setMessage('A Start Key request for this SIM serial has already been submitted.');
-          setLoading(false);
+          hideToast();
+          showErrorToast('A Start Key request for this SIM serial has already been submitted.');
+          setIsSubmittingStartKey(false);
           return;
         }
       }
@@ -260,6 +313,7 @@ export default function DashboardPage() {
       const teamLeaderName = selectedLeader ? selectedLeader.name : 'Unknown Team Leader';
 
       // Submit start key request with customer information (like Android app)
+      showLoadingToast('📤 Submitting request to server...');
       const requestData: Omit<StartKeyRequest, 'requestId' | 'submittedAt'> = {
         customerName: customerName.trim(),
         customerId: customerId.trim(),
@@ -281,7 +335,8 @@ export default function DashboardPage() {
       
       await submitStartKeyRequest(requestData);
 
-      setMessage('🎉 Start key request submitted successfully!\n\n📱 You will receive an SMS notification once your team leader processes the request. Please wait for confirmation.');
+      hideToast();
+      showSuccessToast('🎉 Start key request submitted successfully! You will receive an SMS notification once your team leader processes the request.');
       
       // Reset form
       setCustomerName('');
@@ -294,16 +349,12 @@ export default function DashboardPage() {
       
       // Reload requests
       await loadUserRequests(user.idNumber);
-      
-      // Clear message after 5 seconds
-      setTimeout(() => {
-        setMessage('');
-      }, 5000);
     } catch (error: unknown) {
       console.error('Start key request error:', error);
-      setMessage(`An error occurred while processing the request. Please try again.`);
+      hideToast();
+      showErrorToast('An error occurred while processing the request. Please try again.');
     } finally {
-      setLoading(false);
+      setIsSubmittingStartKey(false);
     }
   };
 
@@ -493,23 +544,16 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="flex justify-center sm:justify-end">
-                    <button
-                      type="submit"
-                      disabled={loading || !serialNumber.trim() || !marketArea.trim()}
+                    <ButtonLoadingState
+                      isLoading={isSubmittingActivation}
+                      loadingText="Activating SIM..."
                       className="inline-flex justify-center py-3 px-6 border border-transparent shadow-lg text-sm font-medium rounded-lg text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
                     >
-                      {loading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Activating SIM...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <span>📱</span>
-                          <span>Activate SIM</span>
-                        </div>
-                      )}
-                    </button>
+                      <div className="flex items-center space-x-2">
+                        <span>📱</span>
+                        <span>Activate SIM</span>
+                      </div>
+                    </ButtonLoadingState>
                   </div>
                 </form>
 
@@ -764,20 +808,13 @@ export default function DashboardPage() {
                     >
                       Cancel
                     </button>
-                    <button
-                      type="submit"
-                      disabled={loading || !customerName.trim() || !customerId.trim() || !customerDob.trim() || !customerPhone.trim() || !selectedTeamLeader}
+                    <ButtonLoadingState
+                      isLoading={isSubmittingStartKey}
+                      loadingText="🚀 Submitting your request..."
                       className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-medium hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-md hover:shadow-lg transition-all duration-200"
                     >
-                      {loading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>🚀 Submitting your request...</span>
-                        </>
-                      ) : (
-                        'Submit Request'
-                      )}
-                    </button>
+                      Submit Request
+                    </ButtonLoadingState>
                   </div>
                 </form>
 
@@ -1133,6 +1170,14 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
     </div>
   );
 }
