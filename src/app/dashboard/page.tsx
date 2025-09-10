@@ -435,27 +435,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Web Portal Notice */}
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded-r-lg">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <span className="text-2xl">📱</span>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-bold text-blue-800">
-                  Web Portal Notice
-                </h3>
-                <div className="mt-1 text-sm text-blue-700">
-                  <p>
-                    This web portal is <strong>only for SIM scanning and start key requests</strong>. 
-                    For all other functions like reports, analytics, and advanced features, 
-                    please use the <strong>MANAAL mobile app</strong>.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Mobile App Style Tab Navigation */}
           <div className="bg-white rounded-t-2xl shadow-lg mb-6">
             <div className="flex">
